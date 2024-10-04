@@ -1,6 +1,6 @@
 /**
  * @file list.c
- * @author SprInec (julycubsprine@gmail.com)
+ * @author SprInec (julycub@163.com)
  * @brief 
  * @version 0.1
  * @date 2024.10.04
