@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/FreeRTOS/Source/include"
+            ]
+        }
+    ],
+    "version": 4
+}

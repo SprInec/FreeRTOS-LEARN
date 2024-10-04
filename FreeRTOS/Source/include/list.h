@@ -9,11 +9,13 @@
  * 
  */
 
-#ifndef _LIST_H
-#define _LIST_H
+#ifndef LIST_H
+#define LIST_H
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "portmacro.h"
 
 struct xLIST_ITEM
 {
@@ -28,4 +30,4 @@ typedef struct xLIST_ITEM ListItem_t;
 #ifdef __cplusplus
 }
 #endif
-#endif /* _LIST_H */
+#endif /* LIST_H */
