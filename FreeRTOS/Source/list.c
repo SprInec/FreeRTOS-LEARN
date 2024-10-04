@@ -5,6 +5,7 @@
  * @version 0.1
  * @date 2024.10.04
  * 
- * @copyright Copyright (c) 2024
+ * @copyright Copyright (c) 2024 SprInec
  * 
  */
+
