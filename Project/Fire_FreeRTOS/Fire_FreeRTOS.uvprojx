@@ -403,6 +403,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\FreeRTOS\Source\list.c</FilePath>
             </File>
+            <File>
+              <FileName>list.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\FreeRTOS\Source\include\list.h</FilePath>
+            </File>
+            <File>
+              <FileName>portmacro.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\FreeRTOS\Source\include\portmacro.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
