@@ -27,6 +27,21 @@ struct xLIST_ITEM
 };
 typedef struct xLIST_ITEM ListItem_t;
 
+struct xMINI_LIST_ITEM
+{
+    TickType_t xItemValue;
+    struct xLIST_ITEM * pxNext;
+    struct xLIST_ITEM * pxPrevious;
+};
+typedef struct xMINI_LIST_ITEM MiniListItem_t;
+
+typedef struct xLIST
+{
+    UBaseType_t uxNumberOfItems;
+    ListItem_t *pxIndex;
+    MiniListItem_t xListEnd;
+} List_t;
+
 #ifdef __cplusplus
 }
 #endif
