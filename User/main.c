@@ -9,10 +9,10 @@
  * 
  */
 
-int main(void)
-{
-    for(;;)
-    {
+ int main(void)
+ {
+     for(;;)
+     {
         
-    }
-}
+     }
+ }
