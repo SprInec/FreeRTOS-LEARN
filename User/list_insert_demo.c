@@ -1,7 +1,7 @@
 /**
  * @file list_insert_demo.c
  * @author SprInec (JulyCub@163.com)
- * @brief 
+ * @brief 链表节点插入实验
  * @version 0.1
  * @date 2024.10.06
  * 
