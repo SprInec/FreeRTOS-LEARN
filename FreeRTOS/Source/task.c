@@ -11,6 +11,11 @@
 
 #include "FreeRTOSConfig.h"
 
+// FIXME: 测试用
+extern TCB_t Task1TCB;
+
+TCB_t *pxCurrentTCB; /* 正在/即将运行的任务控制块 */
+
 /* 任务就绪列表 */
 List_t pxReadyTasksLists[configMAX_PRIORITIES];
 
@@ -128,5 +133,22 @@ void prvInitialiseTaskLists(void)
          uxPriority++)
     {
         xListInitialise(&(pxReadyTasksLists[uxPriority]));
+    }
+}
+
+/**
+ * @brief 启动调度器
+ * 
+ */
+void vTaskStartScheduler(void)
+{
+    // FIXME: 测试用
+    /* 手动指定第一个运行的任务 */
+    pxCurrentTCB = &Task1TCB;
+
+    /* 启动调度器 */
+    if (xPortStartScheduler() != pdFALSE)
+    {
+        /* 调度器启动成功, 则不会返回, 即不会来到这里 */
     }
 }

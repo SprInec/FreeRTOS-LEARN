@@ -46,3 +46,42 @@ StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxC
     /* 返回栈顶指针, 此时pxTopOfStack指向空闲栈 */
     return pxTopOfStack;
 }
+
+#define portNVIC_SYSPRI2_REG         (*((volatile uint32_t*)0xE000ED20))
+
+#define portNVIC_PENDSV_PRI          ((uint32_t)configKERNEL_INTERRUPT_PRIORITY) << 16 UL)
+#define portNVIC_SYSTICK_PRI         ((uint32_t)configKERNEL_INTERRUPT_PRIORITY) << 24 UL)
+
+BaseType_t xPortStartScheduler(void)
+{
+    /* 配置 PendSV 和 SysTick 的中断优先级为最低 */
+    portNVIC_SYSPRI2_REG |= portNVIC_PENDSV_PRI;
+    portNVIC_SYSPRI2_REG |= portNVIC_SYSTICK_PRI;
+
+    /* 启动第一个任务, 不再返回 */
+    prvStartFirstTask();
+
+    /* 不应运行到这里 */
+    return 0;
+}
+
+__asm void prvStartFirstTask(void)
+{
+    PRESERVE8
+
+    ldr r0, = 0xEoooED08
+    ldr r0, [r0]
+    ldr r0, [r0]
+
+    msr msp, r0
+
+    cpsie i
+    cpsie f
+    
+    dsb
+    isb
+
+    svc 0
+    nop
+    nop
+}

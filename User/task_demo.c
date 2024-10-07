@@ -29,37 +29,9 @@ TCB_t Task2TCB;
 TaskHandle_t Task1_Handle;
 TaskHandle_t Task2_Handle;
 
-/**
- * @brief 软件延时
- * 
- * @param count 
- */
-void delay(uint32_t count)
-{
-    for (; count != 0; count--);
-}
-
-void Task1_Entry(void *p_arg)
-{
-    for (;;)
-    {
-        flag1 = 1;
-        delay(100);
-        flag1 = 0;
-        delay(100);
-    }
-}
-
-void Task2_Entry(void *p_arg)
-{
-    for (;;)
-    {
-        flag2 = 1;
-        delay(100);
-        flag2 = 0;
-        delay(100);
-    }
-}
+void delay(uint32_t count);
+void Task1_Entry(void *p_arg);
+void Task2_Entry(void *p_arg);
 
 int main(void)
 {
@@ -88,4 +60,36 @@ int main(void)
     /* 将任务添加到就绪列表 */
     vListInsertEnd(&(pxReadyTasksLists[2]),
                    &(((TCB_t*)&Task2TCB)->xStateListItem));
+}
+
+/**
+ * @brief 软件延时
+ *
+ * @param count
+ */
+void delay(uint32_t count)
+{
+    for (; count != 0; count--);
+}
+
+void Task1_Entry(void *p_arg)
+{
+    for (;;)
+    {
+        flag1 = 1;
+        delay(100);
+        flag1 = 0;
+        delay(100);
+    }
+}
+
+void Task2_Entry(void *p_arg)
+{
+    for (;;)
+    {
+        flag2 = 1;
+        delay(100);
+        flag2 = 0;
+        delay(100);
+    }
 }
