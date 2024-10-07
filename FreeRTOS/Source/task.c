@@ -10,8 +10,20 @@
  */
 
 #include "FreeRTOSConfig.h"
-#include "task.h"
 
+/* 任务就绪列表 */
+List_t pxReadyTasksLists[configMAX_PRIORITIES];
+
+/**
+ * @brief 
+ * 
+ * @param pxTaskCode 任务入口
+ * @param pcName 任务名称, 字符串形式
+ * @param ulStackDepth 任务栈大小, 单位为字
+ * @param pvParameters 任务形参
+ * @param pxCreatedTask 任务句柄
+ * @param pxNewTCB 任务控制块指针
+ */
 static void prvInitialiseNewTask( TaskFunction_t pxTaskCode, 
                                   const char *const pcName,
                                   const uint32_t ulStackDepth,
@@ -27,6 +39,33 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     /* 向下做 8 字节对齐 */
     pxTopOfStack = (StackType_t *)((uint32_t)pxTopOfStack & (~((uint32_t)0x0007)));
 
+    /* 将任务的名字存储在TCB中 */
+    for (x = (UBaseType_t)0; x < (UBaseType_t)configMAX_TASK_NAME_LEN; x++)
+    {
+        pxNewTCB->pcTaskName[x] = pcName[x];
+        if (pcName[x] == 0x00)
+        {
+            break;
+        }
+    }
+    /* 任务名字的长度不能超过 configMAX_TASK_NAME_LEN */
+    pxNewTCB->pcTaskName[configMAX_TASK_NAME_LEN - 1] = '\0';
+
+    /* 初始化 TCB 中的 xStateListItem 节点 */
+    vListInitialiseItem(&(pxNewTCB->xStateListItem));
+    /* 设置xStateListItem节点的拥有者 */
+    ListSET_LIST_ITEM_OWNER(&(pxNewTCB->xStateListItem), pxNewTCB);
+
+    /* 初始化任务栈 */
+    pxNewTCB->pxTopOfStack = pxPortInitialiseStack(pxTopOfStack,
+                                                   pxTaskCode,
+                                                   pvParameters);
+
+    /* 让任务句柄指向任务控制块 */
+    if ((void *)pxCreatedTask != NULL)
+    {
+        *pxCreatedTask = (TaskHandle_t)pxNewTCB;
+    }
 }
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
@@ -75,3 +114,19 @@ TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
 }
 
 #endif /* configSUPPORT_STATIC_ALLOCATION */
+
+/**
+ * @brief 就绪列表初始化
+ * 
+ */
+void prvInitialiseTaskLists(void)
+{
+    UBaseType_t uxPriority;
+
+    for (uxPriority = (UBaseType_t)0U;
+         uxPriority < (UBaseType_t)configMAX_PRIORITIES;
+         uxPriority++)
+    {
+        xListInitialise(&(pxReadyTasksLists[uxPriority]));
+    }
+}

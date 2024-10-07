@@ -17,12 +17,16 @@ extern "C" {
 
 #include "portmacro.h"
 #include "projdefs.h"
+#include "list.h"
+#include "task.h"
 
 #define configUSE_16_BIT_TICKS 0
 
 #define configMAX_TASK_NAME_LEN 16
 
 #define configSUPPORT_STATIC_ALLOCATION 1
+
+#define configMAX_PRIORITIES 5
 
 /* 任务控制块 */
 typedef struct tskTaskControlBlock

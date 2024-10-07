@@ -26,6 +26,9 @@ portCHAR flag2 = 0;
 TCB_t Task1TCB;
 TCB_t Task2TCB;
 
+TaskHandle_t Task1_Handle;
+TaskHandle_t Task2_Handle;
+
 /**
  * @brief 软件延时
  * 
@@ -56,4 +59,33 @@ void Task2_Entry(void *p_arg)
         flag2 = 0;
         delay(100);
     }
+}
+
+int main(void)
+{
+    prvInitialiseTaskLists();
+
+    Task1_Handle =
+        xTaskCreateStatic((TaskFunction_t)Task1_Entry,
+                          (char *)"Task1",
+                          (uint32_t)TASK1_STACK_SIZE,
+                          (void *)NULL,
+                          (StackType_t *)Task1Stack,
+                          (TCB_t *)&Task1TCB);
+
+    /* 将任务添加到就绪列表 */
+    vListInsertEnd(&(pxReadyTasksLists[1]),
+                   &(((TCB_t*)&Task1TCB)->xStateListItem));
+
+    Task2_Handle =
+        xTaskCreateStatic((TaskFunction_t)Task2_Entry,
+                          (char *)"Task2",
+                          (uint32_t)TASK2_STACK_SIZE,
+                          (void *)NULL,
+                          (StackType_t *)Task2Stack,
+                          (TCB_t *)&Task2TCB);
+
+    /* 将任务添加到就绪列表 */
+    vListInsertEnd(&(pxReadyTasksLists[2]),
+                   &(((TCB_t*)&Task2TCB)->xStateListItem));
 }
