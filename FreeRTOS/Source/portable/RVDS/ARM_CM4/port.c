@@ -69,7 +69,7 @@ __asm void prvStartFirstTask(void)
 {
     PRESERVE8
 
-    ldr r0, = 0xEoooED08
+    ldr r0, = 0xE000ED08
     ldr r0, [r0]
     ldr r0, [r0]
 
