@@ -12,10 +12,15 @@ Error: L6218E: Undefined symbol Image$$ARM_LIB_STACK$$ZI$$Limit (referred from s
 
 ---
 
-- [ ] 2024/10/08 17：24
+- [x] 2024/10/08 17：24
 
 ```
 __asm 汇编和C混合代码报错
 ```
 
+![image-20241008215818931](.assets/image-20241008215818931.png)
+
 参考链接：https://blog.csdn.net/u010058695/article/details/114529090
+
+---
+
