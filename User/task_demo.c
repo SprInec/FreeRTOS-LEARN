@@ -10,6 +10,9 @@
  */
 
 #include "FreeRTOSConfig.h"
+#include "task.h"
+#include "portmacro.h"
+#include "projdefs.h"
 
 /* 定义任务栈 */
 #define TASK1_STACK_SIZE 128

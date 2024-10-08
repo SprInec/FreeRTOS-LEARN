@@ -10,9 +10,14 @@
  */
 
 #include "FreeRTOSConfig.h"
+#include "projdefs.h"
+#include "task.h"
+#include "list.h"
+#include "portmacro.h"
 
 // FIXME: 测试用
 extern TCB_t Task1TCB;
+extern TCB_t Task2TCB;
 
 TCB_t *pxCurrentTCB; /* 正在/即将运行的任务控制块 */
 
@@ -150,5 +155,19 @@ void vTaskStartScheduler(void)
     if (xPortStartScheduler() != pdFALSE)
     {
         /* 调度器启动成功, 则不会返回, 即不会来到这里 */
+    }
+}
+
+// FIXME: 测试用
+void vTaskSwitchContext(void)
+{
+    /* 两个任务轮流切换 */
+    if (pxCurrentTCB == &Task1TCB)
+    {
+        pxCurrentTCB = &Task2TCB;
+    }
+    else
+    {
+        pxCurrentTCB = &Task1TCB;
     }
 }

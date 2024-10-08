@@ -9,10 +9,16 @@
  * 
  */
 
+#include "portmacro.h"
+#include "projdefs.h"
+
 #define portINITIAL_XPSR (0x01000000)
 #define portSTART_ADDRESS_MASK ((StackType_t)0xfffffffeUL)
 
-#include "portmacro.h"
+#define portNVIC_SYSPRI2_REG (*((volatile uint32_t *)0xE000ED20))
+
+#define portNVIC_PENDSV_PRI (((uint32_t)configKERNEL_INTERRUPT_PRIORITY) << 16UL)
+#define portNVIC_SYSTICK_PRI (((uint32_t)configKERNEL_INTERRUPT_PRIORITY) << 24UL)
 
 static void prvTaskExitError(void)
 {
@@ -47,11 +53,6 @@ StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxC
     return pxTopOfStack;
 }
 
-#define portNVIC_SYSPRI2_REG         (*((volatile uint32_t*)0xE000ED20))
-
-#define portNVIC_PENDSV_PRI          ((uint32_t)configKERNEL_INTERRUPT_PRIORITY) << 16 UL)
-#define portNVIC_SYSTICK_PRI         ((uint32_t)configKERNEL_INTERRUPT_PRIORITY) << 24 UL)
-
 BaseType_t xPortStartScheduler(void)
 {
     /* 配置 PendSV 和 SysTick 的中断优先级为最低 */
@@ -83,5 +84,62 @@ __asm void prvStartFirstTask(void)
 
     svc 0
     nop
+    nop
+}
+
+__asm void vPortSVCHandler(void)
+{
+    extern pxCurrentTCB;
+
+    PRESERVE8
+
+    ldr r3, =pxCurrentTCB
+    ldr r1, [r3]
+    ldr r0, [r1]
+    ldmia r0!, {r4-r11}
+    msr psp, r0
+    isb
+    mov r0, #0
+    msr basepri, r0
+    orr r14, #0xd
+
+    bx r14
+}
+
+/**
+ * @brief 实现任务切换 
+ */
+__asm void xPortPendSVHandler(void)
+{
+    extern pxCurrentTCB;
+    extern vTaskSwitchContext;
+
+    PRESERVE8
+
+    mrs r0, psp
+    isb
+
+    ldr r3, =pxCurrentTCB
+    ldr r2, [r3]
+
+    stmdb r0!, {r4-r11}
+    str r0, [r2]
+
+    stmdb sp!, {r3, r4}
+    mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY
+    msr basepri, r0
+    dsb
+    isb
+    bl vTaskSwitchContext
+    mov r0, #0
+    msr basepri, r0
+    ldmia sp!, {r3, r14}
+
+    ldr r1, [r3]
+    ldr r0, [r1]
+    ldmia r0!, {r4-r11}
+    msr psp, r0
+    isb
+    bx r14
     nop
 }

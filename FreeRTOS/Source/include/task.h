@@ -15,6 +15,12 @@
 extern "C" {
 #endif
 
+#include "portmacro.h"
+#include "projdefs.h"
+#include "list.h"
+
+#define taskYIELD() portYIELD()
+
 typedef void * TaskHandle_t;
 
 extern List_t pxReadyTasksLists[configMAX_PRIORITIES];

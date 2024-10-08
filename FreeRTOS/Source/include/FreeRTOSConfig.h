@@ -15,10 +15,8 @@
 extern "C" {
 #endif
 
-#include "portmacro.h"
-#include "projdefs.h"
+// FIXME: 测试用
 #include "list.h"
-#include "task.h"
 
 #define configUSE_16_BIT_TICKS 0
 
@@ -28,8 +26,16 @@ extern "C" {
 
 #define configMAX_PRIORITIES 5
 
-/* 任务控制块 */
-typedef struct tskTaskControlBlock
+#define configKERNEL_INTERRUPT_PRIORITY 255
+
+/* 修改 FreeRos 中 SVC, PendSV 和 SysTick 中断服务函数的名称 */
+#define xPortPendSVHandler PendSV_Handler
+#define xPortSysTickHandler SysTick_Handler
+#define xPortSVCHandler SVC_Handler
+
+        // FIXME: 测试用
+        /* 任务控制块 */
+        typedef struct tskTaskControlBlock
 {
     volatile StackType_t *pxTopOfStack;                             /* 栈顶 */
     ListItem_t            xStateListItem;                           /* 任务节点 */
