@@ -15,9 +15,6 @@
 extern "C" {
 #endif
 
-// FIXME: 测试用
-#include "list.h"
-
 #define configUSE_16_BIT_TICKS 0
 
 #define configMAX_TASK_NAME_LEN 16
@@ -32,17 +29,6 @@ extern "C" {
 #define xPortPendSVHandler PendSV_Handler
 #define xPortSysTickHandler SysTick_Handler
 #define xPortSVCHandler SVC_Handler
-
-// FIXME: 测试用
-/* 任务控制块 */
-typedef struct tskTaskControlBlock
-{
-    volatile StackType_t *pxTopOfStack;                             /* 栈顶 */
-    ListItem_t            xStateListItem;                           /* 任务节点 */
-    StackType_t          *pxStack;                                  /* 任务栈起始地址 */
-    char                  pcTaskName[configMAX_TASK_NAME_LEN];      /* 任务名称 */
-} tskTCB;
-typedef tskTCB TCB_t;
 
 #ifdef __cplusplus
 }

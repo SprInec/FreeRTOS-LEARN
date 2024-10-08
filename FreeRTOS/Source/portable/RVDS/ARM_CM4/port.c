@@ -11,6 +11,8 @@
 
 #include "portmacro.h"
 #include "projdefs.h"
+#include "list.h"
+#include "task.h"
 
 #define portINITIAL_XPSR (0x01000000)
 #define portSTART_ADDRESS_MASK ((StackType_t)0xfffffffeUL)
@@ -53,22 +55,9 @@ StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxC
     return pxTopOfStack;
 }
 
-BaseType_t xPortStartScheduler(void)
-{
-    /* 配置 PendSV 和 SysTick 的中断优先级为最低 */
-    portNVIC_SYSPRI2_REG |= portNVIC_PENDSV_PRI;
-    portNVIC_SYSPRI2_REG |= portNVIC_SYSTICK_PRI;
-
-    /* 启动第一个任务, 不再返回 */
-    prvStartFirstTask();
-
-    /* 不应运行到这里 */
-    return 0;
-}
-
 void prvStartFirstTask(void)
 {
-    __asm("PRESERVE8");
+    PRESERVE8
 
     __asm("ldr r0, = 0xE000ED08");
     __asm("ldr r0, [r0]");
@@ -87,9 +76,22 @@ void prvStartFirstTask(void)
     __asm("nop");
 }
 
+BaseType_t xPortStartScheduler(void)
+{
+    /* 配置 PendSV 和 SysTick 的中断优先级为最低 */
+    portNVIC_SYSPRI2_REG |= portNVIC_PENDSV_PRI;
+    portNVIC_SYSPRI2_REG |= portNVIC_SYSTICK_PRI;
+
+    /* 启动第一个任务, 不再返回 */
+    prvStartFirstTask();
+
+    /* 不应运行到这里 */
+    return 0;
+}
+
 void vPortSVCHandler(void)
 {
-    extern pxCurrentTCB;
+    // extern pxCurrentTCB;
 
     __asm("PRESERVE8");
 
@@ -111,8 +113,8 @@ void vPortSVCHandler(void)
  */
 void xPortPendSVHandler(void)
 {
-    extern pxCurrentTCB;
-    extern vTaskSwitchContext;
+    // extern pxCurrentTCB;
+    // extern vTaskSwitchContext;
 
     __asm("PRESERVE8");
 

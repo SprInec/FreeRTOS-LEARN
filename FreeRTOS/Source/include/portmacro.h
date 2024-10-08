@@ -49,8 +49,8 @@ typedef uint32_t TickType_t;
 {\
     /* 触发 PendSV, 产生上下文切换 */\
     portNVIC_INT_CTRL_REG = portNVIC_PENDSVSET_BIT; \
-    __dsb(portSY_FULL_READ_WRITE);\
-    __isb(portSY_FULL_READ_WRITE);\
+    __asm("dsb portSY_FULL_READ_WRITE");\
+    __asm("isb portSY_FULL_READ_WRITE");\
 }
 
 #ifdef __cplusplus
