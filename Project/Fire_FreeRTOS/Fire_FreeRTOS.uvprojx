@@ -386,14 +386,21 @@
           <GroupName>user</GroupName>
           <Files>
             <File>
-              <FileName>main.c</FileName>
+              <FileName>task_demo.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\User\main.c</FilePath>
+              <FilePath>..\..\User\task_demo.c</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
           <GroupName>FreeRTOS/Ports</GroupName>
+          <Files>
+            <File>
+              <FileName>port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4\port.c</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>FreeRTOS/Sources</GroupName>
@@ -412,6 +419,31 @@
               <FileName>portmacro.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\..\FreeRTOS\Source\include\portmacro.h</FilePath>
+            </File>
+            <File>
+              <FileName>task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\FreeRTOS\Source\task.c</FilePath>
+            </File>
+            <File>
+              <FileName>FreeRTOSConfig.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\FreeRTOS\Source\include\FreeRTOSConfig.h</FilePath>
+            </File>
+            <File>
+              <FileName>projdefs.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\FreeRTOS\Source\include\projdefs.h</FilePath>
+            </File>
+            <File>
+              <FileName>rtdef.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\FreeRTOS\Source\include\rtdef.h</FilePath>
+            </File>
+            <File>
+              <FileName>task.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\FreeRTOS\Source\include\task.h</FilePath>
             </File>
           </Files>
         </Group>

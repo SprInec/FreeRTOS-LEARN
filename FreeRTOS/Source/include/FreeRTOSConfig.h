@@ -33,9 +33,9 @@ extern "C" {
 #define xPortSysTickHandler SysTick_Handler
 #define xPortSVCHandler SVC_Handler
 
-        // FIXME: 测试用
-        /* 任务控制块 */
-        typedef struct tskTaskControlBlock
+// FIXME: 测试用
+/* 任务控制块 */
+typedef struct tskTaskControlBlock
 {
     volatile StackType_t *pxTopOfStack;                             /* 栈顶 */
     ListItem_t            xStateListItem;                           /* 任务节点 */

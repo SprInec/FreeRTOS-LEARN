@@ -66,80 +66,80 @@ BaseType_t xPortStartScheduler(void)
     return 0;
 }
 
-__asm void prvStartFirstTask(void)
+void prvStartFirstTask(void)
 {
-    PRESERVE8
+    __asm("PRESERVE8");
 
-    ldr r0, = 0xE000ED08
-    ldr r0, [r0]
-    ldr r0, [r0]
+    __asm("ldr r0, = 0xE000ED08");
+    __asm("ldr r0, [r0]");
+    __asm("ldr r0, [r0]");
 
-    msr msp, r0
+    __asm("msr msp, r0");
 
-    cpsie i
-    cpsie f
-    
-    dsb
-    isb
+    __asm("cpsie i");
+    __asm("cpsie f");
 
-    svc 0
-    nop
-    nop
+    __asm("dsb");
+    __asm("isb");
+
+    __asm("svc 0");
+    __asm("nop");
+    __asm("nop");
 }
 
-__asm void vPortSVCHandler(void)
+void vPortSVCHandler(void)
 {
     extern pxCurrentTCB;
 
-    PRESERVE8
+    __asm("PRESERVE8");
 
-    ldr r3, =pxCurrentTCB
-    ldr r1, [r3]
-    ldr r0, [r1]
-    ldmia r0!, {r4-r11}
-    msr psp, r0
-    isb
-    mov r0, #0
-    msr basepri, r0
-    orr r14, #0xd
+    __asm("ldr r3, =pxCurrentTCB");
+    __asm("ldr r1, [r3]");
+    __asm("ldr r0, [r1]");
+    __asm("ldmia r0!, {r4-r11}");
+    __asm("msr psp, r0");
+    __asm("isb");
+    __asm("mov r0, #0");
+    __asm("msr basepri, r0");
+    __asm("orr r14, #0xd");
 
-    bx r14
+    __asm("bx r14");
 }
 
 /**
  * @brief 实现任务切换 
  */
-__asm void xPortPendSVHandler(void)
+void xPortPendSVHandler(void)
 {
     extern pxCurrentTCB;
     extern vTaskSwitchContext;
 
-    PRESERVE8
+    __asm("PRESERVE8");
 
-    mrs r0, psp
-    isb
+    __asm("mrs r0, psp");
+    __asm("isb");
 
-    ldr r3, =pxCurrentTCB
-    ldr r2, [r3]
+    __asm("ldr r3, =pxCurrentTCB");
+    __asm("ldr r2, [r3]");
 
-    stmdb r0!, {r4-r11}
-    str r0, [r2]
+    __asm("stmdb r0!, {r4-r11}");
+    __asm("str r0, [r2]");
 
-    stmdb sp!, {r3, r4}
-    mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY
-    msr basepri, r0
-    dsb
-    isb
-    bl vTaskSwitchContext
-    mov r0, #0
-    msr basepri, r0
-    ldmia sp!, {r3, r14}
+    __asm("stmdb sp!, {r3, r4}");
+    __asm("mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY");
+    __asm("msr basepri, r0");
+    __asm("dsb");
+    __asm("isb");
+    __asm("bl vTaskSwitchContext");
+    __asm("mov r0, #0");
+    __asm("msr basepri, r0");
+    __asm("ldmia sp!, {r3, r14}");
 
-    ldr r1, [r3]
-    ldr r0, [r1]
-    ldmia r0!, {r4-r11}
-    msr psp, r0
-    isb
-    bx r14
-    nop
+    __asm("ldr r1, [r3]");
+    __asm("ldr r0, [r1]");
+    __asm("ldmia r0!, {r4-r11}");
+    __asm("msr psp, r0");
+    __asm("isb");
+    __asm("bx r14");
+    __asm("nop");
 }

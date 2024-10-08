@@ -63,6 +63,14 @@ int main(void)
     /* 将任务添加到就绪列表 */
     vListInsertEnd(&(pxReadyTasksLists[2]),
                    &(((TCB_t*)&Task2TCB)->xStateListItem));
+
+    /* 启动调度器, 开启多任务调度, 启动成功则不返回 */
+    vTaskStartScheduler();
+
+    for (;;)
+    {
+        /* 系统成功启动则不会到达这里 */
+    }
 }
 
 /**
@@ -83,6 +91,9 @@ void Task1_Entry(void *p_arg)
         delay(100);
         flag1 = 0;
         delay(100);
+
+        /* 任务切换, 这里是手动切换 */
+        taskYIELD();
     }
 }
 
@@ -94,5 +105,8 @@ void Task2_Entry(void *p_arg)
         delay(100);
         flag2 = 0;
         delay(100);
+
+        /* 任务切换, 这里是手动切换 */
+        taskYIELD();
     }
 }

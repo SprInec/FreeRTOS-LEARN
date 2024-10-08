@@ -33,6 +33,7 @@ TaskHandle_t xTaskCreateStatic(TaskFunction_t pxTaskCode,
                                TCB_t *const pxTaskBuffer);
 
 void prvInitialiseTaskLists(void);
+void vTaskStartScheduler(void);
 
 #ifdef __cplusplus
 }

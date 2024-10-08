@@ -137,7 +137,7 @@ void prvInitialiseTaskLists(void)
          uxPriority < (UBaseType_t)configMAX_PRIORITIES;
          uxPriority++)
     {
-        xListInitialise(&(pxReadyTasksLists[uxPriority]));
+        vListInitialise(&(pxReadyTasksLists[uxPriority]));
     }
 }
 

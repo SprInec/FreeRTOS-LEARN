@@ -8,7 +8,7 @@ Copyright (C) 2023 ARM Ltd and ARM Germany GmbH. All rights reserved.
 License Information: s July
 s
 User-based license: Keil MDK Community (non-commercial free of charge)
-Valid until: Jun 1 2033. Cached until: Oct 11 2024
+Valid until: Jun 1 2033. Cached until: Oct 13 2024
  
 Tool Versions:
 Toolchain:       Keil MDK Community (non-commercial free of charge  Version: 5.39.0.0
@@ -25,18 +25,275 @@ Dialog DLL:      TCM.DLL V1.56.4.0
  
 <h2>Project:</h2>
 F:\EmbProject\FreeRTOS\FreeRTOS-NANO\Project\Fire_FreeRTOS\Fire_FreeRTOS.uvprojx
-Project File Date:  10/06/2024
+Project File Date:  10/08/2024
 
 <h2>Output:</h2>
 *** Using Compiler 'V6.21', folder: 'D:\Keil\MDK539\ARM\ARMCLANG\Bin'
 Rebuild target 'FreeRTOS-Nano'
-compiling system_ARMCM4.c...
-compiling main.c...
-compiling startup_ARMCM4.c...
+../../FreeRTOS/Source/task.c(12): warning: In file included from...
+../../FreeRTOS/Source/include\FreeRTOSConfig.h(19): warning: In file included from...
+../../FreeRTOS/Source/include/list.h(18): warning: In file included from...
+../../FreeRTOS/Source/include/portmacro.h(35): warning: 'configUSE_16_BIT_TICKS' is not defined, evaluates to 0 [-Wundef]
+   35 | #if ( configUSE_16_BIT_TICKS == 1 )
+      |       ^
+../../FreeRTOS/Source/task.c(14): warning: In file included from...
+../../FreeRTOS/Source/include\task.h(41): warning: no newline at end of file [-Wnewline-eof]
+   41 | #endif /* TASK_H */
+      |                    ^
+../../FreeRTOS/Source/task.c(70): error: call to undeclared function 'pxPortInitialiseStack'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   70 |     pxNewTCB->pxTopOfStack = pxPortInitialiseStack(pxTopOfStack,
+      |                              ^
+../../FreeRTOS/Source/task.c(70): error: incompatible integer to pointer conversion assigning to 'volatile StackType_t *' (aka 'volatile unsigned int *') from 'int' [-Wint-conversion]
+   70 |     pxNewTCB->pxTopOfStack = pxPortInitialiseStack(pxTopOfStack,
+      |                            ^ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   71 |                                                    pxTaskCode,
+      |                                                    ~~~~~~~~~~~
+   72 |                                                    pvParameters);
+      |                                                    ~~~~~~~~~~~~~
+../../FreeRTOS/Source/task.c(155): error: call to undeclared function 'xPortStartScheduler'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  155 |     if (xPortStartScheduler() != pdFALSE)
+      |         ^
+../../FreeRTOS/Source/task.c(155): note: did you mean 'vTaskStartScheduler'?
+../../FreeRTOS/Source/task.c(148): note: 'vTaskStartScheduler' declared here
+  148 | void vTaskStartScheduler(void)
+      |      ^
+  149 | {
+  150 |     // FIXME: 测试用
+  151 |     /* 手动指定第一个运行的任务 */
+  152 |     pxCurrentTCB = &Task1TCB;
+  153 | 
+  154 |     /* 启动调度器 */
+  155 |     if (xPortStartScheduler() != pdFALSE)
+      |         ~~~~~~~~~~~~~~~~~~~
+      |         vTaskStartScheduler
+../../FreeRTOS/Source/task.c(173): warning: no newline at end of file [-Wnewline-eof]
+  173 | }
+      |  ^
+../../FreeRTOS/Source/task.c(162): warning: no previous prototype for function 'vTaskSwitchContext' [-Wmissing-prototypes]
+  162 | void vTaskSwitchContext(void)
+      |      ^
+../../FreeRTOS/Source/task.c(162): note: declare 'static' if the function is not intended to be used outside of this translation unit
+  162 | void vTaskSwitchContext(void)
+      | ^
+      | static 
+../../FreeRTOS/Source/task.c(22): warning: no previous extern declaration for non-static variable 'pxCurrentTCB' [-Wmissing-variable-declarations]
+   22 | TCB_t *pxCurrentTCB; /* 正在/即将运行的任务控制块 */
+      |        ^
+../../FreeRTOS/Source/task.c(22): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   22 | TCB_t *pxCurrentTCB; /* 正在/即将运行的任务控制块 */
+      | ^
+5 warnings and 3 errors generated.
+compiling task.c...
+../../User/task_demo.c(12): warning: In file included from...
+../../FreeRTOS/Source/include\FreeRTOSConfig.h(19): warning: In file included from...
+../../FreeRTOS/Source/include/list.h(18): warning: In file included from...
+../../FreeRTOS/Source/include/portmacro.h(35): warning: 'configUSE_16_BIT_TICKS' is not defined, evaluates to 0 [-Wundef]
+   35 | #if ( configUSE_16_BIT_TICKS == 1 )
+      |       ^
+../../User/task_demo.c(13): warning: In file included from...
+../../FreeRTOS/Source/include\task.h(41): warning: no newline at end of file [-Wnewline-eof]
+   41 | #endif /* TASK_H */
+      |                    ^
+../../User/task_demo.c(25): warning: no previous extern declaration for non-static variable 'flag1' [-Wmissing-variable-declarations]
+   25 | portCHAR flag1 = 0;
+      |          ^
+../../User/task_demo.c(25): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   25 | portCHAR flag1 = 0;
+      | ^
+../../FreeRTOS/Source/include/portmacro.h(23): note: expanded from macro 'portCHAR'
+   23 | #define portCHAR        char
+      |                         ^
+../../User/task_demo.c(26): warning: no previous extern declaration for non-static variable 'flag2' [-Wmissing-variable-declarations]
+   26 | portCHAR flag2 = 0;
+      |          ^
+../../User/task_demo.c(26): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   26 | portCHAR flag2 = 0;
+      | ^
+../../FreeRTOS/Source/include/portmacro.h(23): note: expanded from macro 'portCHAR'
+   23 | #define portCHAR        char
+      |                         ^
+../../User/task_demo.c(96): error: call to undeclared function '__dsb'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   96 |         taskYIELD();
+      |         ^
+../../FreeRTOS/Source/include\task.h(22): note: expanded from macro 'taskYIELD'
+   22 | #define taskYIELD() portYIELD()
+      |                     ^
+../../FreeRTOS/Source/include/portmacro.h(52): note: expanded from macro 'portYIELD'
+   52 |     __dsb("portSY_FULL_READ_WRITE");\
+      |     ^
+../../User/task_demo.c(96): error: call to undeclared function '__isb'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+../../FreeRTOS/Source/include\task.h(22): note: expanded from macro 'taskYIELD'
+   22 | #define taskYIELD() portYIELD()
+      |                     ^
+../../FreeRTOS/Source/include/portmacro.h(53): note: expanded from macro 'portYIELD'
+   53 |     __isb("portSY_FULL_READ_WRITE");\
+      |     ^
+../../User/task_demo.c(96): warning: empty expression statement has no effect; remove unnecessary ';' to silence this warning [-Wextra-semi-stmt]
+   96 |         taskYIELD();
+      |                    ^
+../../User/task_demo.c(86): warning: unused parameter 'p_arg' [-Wunused-parameter]
+   86 | void Task1_Entry(void *p_arg)
+      |                        ^
+../../User/task_demo.c(110): error: call to undeclared function '__dsb'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  110 |         taskYIELD();
+      |         ^
+../../FreeRTOS/Source/include\task.h(22): note: expanded from macro 'taskYIELD'
+   22 | #define taskYIELD() portYIELD()
+      |                     ^
+../../FreeRTOS/Source/include/portmacro.h(52): note: expanded from macro 'portYIELD'
+   52 |     __dsb("portSY_FULL_READ_WRITE");\
+      |     ^
+../../User/task_demo.c(110): error: call to undeclared function '__isb'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+../../FreeRTOS/Source/include\task.h(22): note: expanded from macro 'taskYIELD'
+   22 | #define taskYIELD() portYIELD()
+      |                     ^
+../../FreeRTOS/Source/include/portmacro.h(53): note: expanded from macro 'portYIELD'
+   53 |     __isb("portSY_FULL_READ_WRITE");\
+      |     ^
+../../User/task_demo.c(110): warning: empty expression statement has no effect; remove unnecessary ';' to silence this warning [-Wextra-semi-stmt]
+  110 |         taskYIELD();
+      |                    ^
+../../User/task_demo.c(112): warning: no newline at end of file [-Wnewline-eof]
+  112 | }
+      |  ^
+../../User/task_demo.c(100): warning: unused parameter 'p_arg' [-Wunused-parameter]
+  100 | void Task2_Entry(void *p_arg)
+      |                        ^
+../../User/task_demo.c(19): warning: no previous extern declaration for non-static variable 'Task1Stack' [-Wmissing-variable-declarations]
+   19 | StackType_t Task1Stack[TASK1_STACK_SIZE];
+      |             ^
+../../User/task_demo.c(19): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   19 | StackType_t Task1Stack[TASK1_STACK_SIZE];
+      | ^
+../../User/task_demo.c(22): warning: no previous extern declaration for non-static variable 'Task2Stack' [-Wmissing-variable-declarations]
+   22 | StackType_t Task2Stack[TASK2_STACK_SIZE];
+      |             ^
+../../User/task_demo.c(22): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   22 | StackType_t Task2Stack[TASK2_STACK_SIZE];
+      | ^
+../../User/task_demo.c(29): warning: no previous extern declaration for non-static variable 'Task1TCB' [-Wmissing-variable-declarations]
+   29 | TCB_t Task1TCB;
+      |       ^
+../../User/task_demo.c(29): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   29 | TCB_t Task1TCB;
+      | ^
+../../User/task_demo.c(30): warning: no previous extern declaration for non-static variable 'Task2TCB' [-Wmissing-variable-declarations]
+   30 | TCB_t Task2TCB;
+      |       ^
+../../User/task_demo.c(30): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   30 | TCB_t Task2TCB;
+      | ^
+../../User/task_demo.c(32): warning: no previous extern declaration for non-static variable 'Task1_Handle' [-Wmissing-variable-declarations]
+   32 | TaskHandle_t Task1_Handle;
+      |              ^
+../../User/task_demo.c(32): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   32 | TaskHandle_t Task1_Handle;
+      | ^
+../../User/task_demo.c(33): warning: no previous extern declaration for non-static variable 'Task2_Handle' [-Wmissing-variable-declarations]
+   33 | TaskHandle_t Task2_Handle;
+      |              ^
+../../User/task_demo.c(33): note: declare 'static' if the variable is not intended to be used outside of this translation unit
+   33 | TaskHandle_t Task2_Handle;
+      | ^
+15 warnings and 4 errors generated.
+compiling task_demo.c...
+../../FreeRTOS/Source/list.c(11): warning: In file included from...
+../../FreeRTOS/Source/include\list.h(18): warning: In file included from...
+../../FreeRTOS/Source/include/portmacro.h(20): warning: In file included from...
+../../FreeRTOS/Source/include/FreeRTOSConfig.h(40): error: unknown type name 'StackType_t'
+   40 |     volatile StackType_t *pxTopOfStack;                             /* 栈顶 */
+      |              ^
+../../FreeRTOS/Source/include/FreeRTOSConfig.h(41): error: unknown type name 'ListItem_t'
+   41 |     ListItem_t            xStateListItem;                           /* 任务节点 */
+      |     ^
+../../FreeRTOS/Source/include/FreeRTOSConfig.h(42): error: unknown type name 'StackType_t'
+   42 |     StackType_t          *pxStack;                                  /* 任务栈起始地址 */
+      |     ^
+3 errors generated.
 compiling list.c...
-linking...
-Program Size: Code=272 RO-data=976 RW-data=4 ZI-data=3584  
-".\Objects\Fire_FreeRTOS.axf" - 0 Error(s), 0 Warning(s).
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(12): warning: In file included from...
+../../FreeRTOS/Source/include\portmacro.h(20): warning: In file included from...
+../../FreeRTOS/Source/include/FreeRTOSConfig.h(19): warning: In file included from...
+../../FreeRTOS/Source/include/list.h(23): error: unknown type name 'TickType_t'
+   23 |     TickType_t xItemValue;              /* 辅助值,用于帮助节点做顺序排序 */
+      |     ^
+../../FreeRTOS/Source/include/list.h(34): error: unknown type name 'TickType_t'
+   34 |     TickType_t xItemValue;              /* 辅助值,用于帮助节点做升序排序 */
+      |     ^
+../../FreeRTOS/Source/include/list.h(43): error: unknown type name 'UBaseType_t'
+   43 |     UBaseType_t uxNumberOfItems;       /* 链表中节点的数量 */
+      |     ^
+../../FreeRTOS/Source/include/list.h(106): error: unknown type name 'UBaseType_t'
+  106 | UBaseType_t uxListRemove(ListItem_t *const pxItemToRemove);
+      | ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(12): warning: In file included from...
+../../FreeRTOS/Source/include\portmacro.h(20): warning: In file included from...
+../../FreeRTOS/Source/include/FreeRTOSConfig.h(40): error: unknown type name 'StackType_t'
+   40 |     volatile StackType_t *pxTopOfStack;                             /* 栈顶 */
+      |              ^
+../../FreeRTOS/Source/include/FreeRTOSConfig.h(42): error: unknown type name 'StackType_t'
+   42 |     StackType_t          *pxStack;                                  /* 任务栈起始地址 */
+      |     ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(37): warning: no previous prototype for function 'pxPortInitialiseStack' [-Wmissing-prototypes]
+   37 | StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters)
+      |              ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(37): note: declare 'static' if the function is not intended to be used outside of this translation unit
+   37 | StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters)
+      | ^
+      | static 
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(63): error: call to undeclared function 'prvStartFirstTask'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   63 |     prvStartFirstTask();
+      |     ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(56): warning: no previous prototype for function 'xPortStartScheduler' [-Wmissing-prototypes]
+   56 | BaseType_t xPortStartScheduler(void)
+      |            ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(56): note: declare 'static' if the function is not intended to be used outside of this translation unit
+   56 | BaseType_t xPortStartScheduler(void)
+      | ^
+      | static 
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(69): error: conflicting types for 'prvStartFirstTask'
+   69 | void prvStartFirstTask(void)
+      |      ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(63): note: previous implicit declaration is here
+   63 |     prvStartFirstTask();
+      |     ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(92): error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
+   92 |     extern pxCurrentTCB;
+      |     ~~~~~~ ^
+      |     int
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(90): warning: no previous prototype for function 'vPortSVCHandler' [-Wmissing-prototypes]
+   90 | void vPortSVCHandler(void)
+      |      ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(90): note: declare 'static' if the function is not intended to be used outside of this translation unit
+   90 | void vPortSVCHandler(void)
+      | ^
+      | static 
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(114): error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
+  114 |     extern pxCurrentTCB;
+      |     ~~~~~~ ^
+      |     int
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(115): error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
+  115 |     extern vTaskSwitchContext;
+      |     ~~~~~~ ^
+      |     int
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(145): warning: no newline at end of file [-Wnewline-eof]
+  145 | }
+      |  ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(112): warning: no previous prototype for function 'PendSV_Handler' [-Wmissing-prototypes]
+  112 | void xPortPendSVHandler(void)
+      |      ^
+../../FreeRTOS/Source/include/FreeRTOSConfig.h(32): note: expanded from macro 'xPortPendSVHandler'
+   32 | #define xPortPendSVHandler PendSV_Handler
+      |                            ^
+../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(112): note: declare 'static' if the function is not intended to be used outside of this translation unit
+  112 | void xPortPendSVHandler(void)
+      | ^
+      | static 
+5 warnings and 11 errors generated.
+compiling port.c...
+compiling system_ARMCM4.c...
+compiling startup_ARMCM4.c...
+".\Objects\Fire_FreeRTOS.axf" - 21 Error(s), 25 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -57,8 +314,9 @@ Package Vendor: ARM
    * Component: ARM::CMSIS:CORE@5.6.0
 
    * Component: ARM::Device:Startup&C Startup@2.0.3
-      Source file:   Device/ARM/ARMCM4/Source/system_ARMCM4.c
       Source file:   Device/ARM/ARMCM4/Source/startup_ARMCM4.c
+      Source file:   Device/ARM/ARMCM4/Source/system_ARMCM4.c
+Target not created.
 Build Time Elapsed:  00:00:01
 </pre>
 </body>
