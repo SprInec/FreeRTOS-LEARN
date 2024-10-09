@@ -57,7 +57,7 @@ StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxC
 
 void prvStartFirstTask(void)
 {
-    PRESERVE8
+    __asm("PRESERVE8");
 
     __asm("ldr r0, = 0xE000ED08");
     __asm("ldr r0, [r0]");

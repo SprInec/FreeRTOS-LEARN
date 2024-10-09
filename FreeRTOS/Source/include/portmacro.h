@@ -17,7 +17,9 @@ extern "C" {
 
 #include "stdint.h"
 #include "stddef.h"
+
 #include "FreeRTOSConfig.h"
+#include "projdefs.h"
 
 /* 数据类型重定义 */
 #define portCHAR        char
@@ -52,6 +54,9 @@ typedef uint32_t TickType_t;
     __asm("dsb portSY_FULL_READ_WRITE");\
     __asm("isb portSY_FULL_READ_WRITE");\
 }
+
+StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters);
+BaseType_t xPortStartScheduler(void);
 
 #ifdef __cplusplus
 }
