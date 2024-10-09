@@ -24,6 +24,9 @@ TCB_t *pxCurrentTCB; /* 正在/即将运行的任务控制块 */
 /* 任务就绪列表 */
 List_t pxReadyTasksLists[configMAX_PRIORITIES];
 
+StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters);
+BaseType_t xPortStartScheduler(void);
+
 /**
  * @brief 
  * 
@@ -107,12 +110,12 @@ TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
         pxNewTCB->pxStack = (StackType_t *)puxStackBuffer;
 
         /* 创建新任务 */
-        prvInitialiseNewTask( pxTaskCode,   /* 任务入口 */
-                              pcName,       /* 任务名称, 字符串形式 */
-                              ulStackDepth, /* 任务栈大小, 单位为字 */
-                              pvParameters, /* 任务形参 */
-                              &xReturn,     /* 任务句柄 */
-                              pxNewTCB );   /* 任务栈起始地址 */
+        prvInitialiseNewTask( pxTaskCode,                   /* 任务入口 */
+                              pcName,               /* 任务名称, 字符串形式 */
+                              ulStackDepth,   /* 任务栈大小, 单位为字 */
+                              pvParameters,   /* 任务形参 */
+                              &xReturn,      /* 任务句柄 */
+                              pxNewTCB );         /* 任务栈起始地址 */
     }
     else
     {

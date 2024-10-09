@@ -57,7 +57,7 @@ StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxC
 
 void prvStartFirstTask(void)
 {
-    __asm("PRESERVE8");
+    __asm volatile(".p2align 3");
 
     __asm("ldr r0, = 0xE000ED08");
     __asm("ldr r0, [r0]");
@@ -91,9 +91,9 @@ BaseType_t xPortStartScheduler(void)
 
 void vPortSVCHandler(void)
 {
-    // extern pxCurrentTCB;
+    extern TCB_t *pxCurrentTCB;
 
-    __asm("PRESERVE8");
+    __asm volatile(".p2align 3");
 
     __asm("ldr r3, =pxCurrentTCB");
     __asm("ldr r1, [r3]");
@@ -113,10 +113,10 @@ void vPortSVCHandler(void)
  */
 void xPortPendSVHandler(void)
 {
-    // extern pxCurrentTCB;
-    // extern vTaskSwitchContext;
+    extern TCB_t *pxCurrentTCB;
+    extern void vTaskSwitchContext(void);
 
-    __asm("PRESERVE8");
+    __asm volatile(".p2align 3");
 
     __asm("mrs r0, psp");
     __asm("isb");
@@ -128,7 +128,7 @@ void xPortPendSVHandler(void)
     __asm("str r0, [r2]");
 
     __asm("stmdb sp!, {r3, r4}");
-    __asm("mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY");
+    __asm volatile ("mov r0, %0" :: "i" (configMAX_SYSCALL_INTERRUPT_PRIORITY));
     __asm("msr basepri, r0");
     __asm("dsb");
     __asm("isb");

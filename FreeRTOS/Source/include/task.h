@@ -21,6 +21,8 @@ extern "C" {
 
 #define taskYIELD() portYIELD()
 
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY 15
+
 typedef void * TaskHandle_t;
 
 extern List_t pxReadyTasksLists[configMAX_PRIORITIES];
@@ -35,9 +37,6 @@ typedef struct tskTaskControlBlock
     char pcTaskName[configMAX_TASK_NAME_LEN]; /* 任务名称 */
 } tskTCB;
 typedef tskTCB TCB_t;
-
-// FIXME
-extern TCB_t *pxCurrentTCB;
 
 TaskHandle_t xTaskCreateStatic(TaskFunction_t pxTaskCode,
                                const char *const pcName,

@@ -22,7 +22,7 @@ StackType_t Task1Stack[TASK1_STACK_SIZE];
 StackType_t Task2Stack[TASK2_STACK_SIZE];
 
 /* 定义任务标志 */
-portCHAR flag1 = 0;
+portCHAR flag1 = 1;
 portCHAR flag2 = 0;
 
 /* 定义任务控制块 */

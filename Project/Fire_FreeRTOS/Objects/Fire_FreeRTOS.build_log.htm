@@ -30,61 +30,15 @@ Project File Date:  10/08/2024
 <h2>Output:</h2>
 *** Using Compiler 'V6.21', folder: 'D:\Keil\MDK539\ARM\ARMCLANG\Bin'
 Rebuild target 'FreeRTOS-Nano'
-../../FreeRTOS/Source/task.c(13): warning: In file included from...
-../../FreeRTOS/Source/include\projdefs.h(18): warning: In file included from...
-../../FreeRTOS/Source/include/portmacro.h(58): error: unknown type name 'TaskFunction_t'
-   58 | StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters);
-      |                                                               ^
-1 error generated.
+compiling system_ARMCM4.c...
+compiling port.c...
+compiling task_demo.c...
 compiling task.c...
 compiling startup_ARMCM4.c...
-../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(60): error: invalid instruction
-   60 |     __asm("PRESERVE8");
-      |           ^
-<inline asm>(1): note: instantiated into assembly here
-    1 |         PRESERVE8
-      |         ^~~~~~~~~
-../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(96): error: invalid instruction
-   96 |     __asm("PRESERVE8");
-      |           ^
-<inline asm>(1): note: instantiated into assembly here
-    1 |         PRESERVE8
-      |         ^~~~~~~~~
-../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(119): error: invalid instruction
-  119 |     __asm("PRESERVE8");
-      |           ^
-<inline asm>(1): note: instantiated into assembly here
-    1 |         PRESERVE8
-      |         ^~~~~~~~~
-../../FreeRTOS/Source/portable/RVDS/ARM_CM4/port.c(131): error: unsupported relocation type
-  131 |     __asm("mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY");
-      |           ^
-<inline asm>(1): note: instantiated into assembly here
-    1 |         mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY
-      |         ^
-4 errors generated.
-compiling port.c...
-error: invalid operand for instruction
-<inline asm>(1): note: instantiated into assembly here
-    1 |         dsb portSY_FULL_READ_WRITE
-      |             ^
-error: invalid operand for instruction
-<inline asm>(1): note: instantiated into assembly here
-    1 |         isb portSY_FULL_READ_WRITE
-      |             ^
-error: invalid operand for instruction
-<inline asm>(1): note: instantiated into assembly here
-    1 |         dsb portSY_FULL_READ_WRITE
-      |             ^
-error: invalid operand for instruction
-<inline asm>(1): note: instantiated into assembly here
-    1 |         isb portSY_FULL_READ_WRITE
-      |             ^
-4 errors generated.
-compiling task_demo.c...
-compiling system_ARMCM4.c...
 compiling list.c...
-".\Objects\Fire_FreeRTOS.axf" - 9 Error(s), 0 Warning(s).
+linking...
+Program Size: Code=1378 RO-data=1006 RW-data=8 ZI-data=4812  
+".\Objects\Fire_FreeRTOS.axf" - 0 Error(s), 0 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -105,9 +59,8 @@ Package Vendor: ARM
    * Component: ARM::CMSIS:CORE@5.6.0
 
    * Component: ARM::Device:Startup&C Startup@2.0.3
-      Source file:   Device/ARM/ARMCM4/Source/system_ARMCM4.c
       Source file:   Device/ARM/ARMCM4/Source/startup_ARMCM4.c
-Target not created.
+      Source file:   Device/ARM/ARMCM4/Source/system_ARMCM4.c
 Build Time Elapsed:  00:00:01
 </pre>
 </body>
