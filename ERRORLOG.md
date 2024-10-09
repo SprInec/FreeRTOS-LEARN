@@ -35,7 +35,7 @@ error: invalid operand for instruction
       |             ^~~~~~~~~
 ```
 
-**问题：**在当前的内联汇编写法中：
+**问题：** 在当前的内联汇编写法中：
 
 ```c
 __asm("dsb portSY_FULL_READ_WRITE");
@@ -81,7 +81,7 @@ error: invalid instruction
 
 **错误原因：**`ARM v6.21` 编译器不支持该语法
 
-**解决方案：**替换为以下写法
+**解决方案：** 替换为以下写法
 
 ```C
 __asm volatile(".p2align 3");
