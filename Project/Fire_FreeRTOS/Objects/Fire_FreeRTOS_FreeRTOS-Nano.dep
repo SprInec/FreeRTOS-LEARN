@@ -1,58 +1,67 @@
 Dependencies for Project 'Fire_FreeRTOS', Target 'FreeRTOS-Nano': (DO NOT MODIFY !)
-CompilerVersion: 6210000::V6.21::ARMCLANG
-F (..\..\User\task_demo.c)(0x67060A4E)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=none -mfloat-abi=soft -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-mlittle-endian -gdwarf-4 -O0 -ffunction-sections -w -I ../../FreeRTOS/Source/include-I./RTE/_FreeRTOS-Nano-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/CMSIS/Core/Include-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/Device/ARM/ARMCM4/Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o ./objects/task_demo.o -MD)
-I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x67054647)
-I (..\..\FreeRTOS\Source\include\task.h)(0x6706078F)
-I (..\..\FreeRTOS\Source\include\portmacro.h)(0x6706070C)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h)(0x6569B012)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stddef.h)(0x6569B012)
-I (..\..\FreeRTOS\Source\include\projdefs.h)(0x670606BE)
+CompilerVersion: 5060960::V5.06 update 7 (build 960)::.\ARMCC
+F (..\..\User\task_demo.c)(0x671A3DEB)(--c99 -c --cpu Cortex-M4 -D__MICROLIB --li -g -O0 --apcs=interwork --split_sections -I ..\..\FreeRTOS\Source\include -I ..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4-I.\RTE\_FreeRTOS-Nano-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o .\objects\task_demo.o --omf_browse .\objects\task_demo.crf --depend .\objects\task_demo.d)
+I (..\..\FreeRTOS\Source\include\FreeRTOS.h)(0x671A3F0B)
+I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x671A3594)
+I (..\..\FreeRTOS\Source\include\projdefs.h)(0x671A35EB)
+I (..\..\FreeRTOS\Source\include\portable.h)(0x671A3509)
+I (..\..\FreeRTOS\Source\include\portmacro.h)(0x671A40A2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stdint.h)(0x5E8E3CC2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stddef.h)(0x5E8E3CC2)
 I (..\..\FreeRTOS\Source\include\list.h)(0x67018097)
-F (..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4\port.c)(0x670607FC)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=none -mfloat-abi=soft -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-mlittle-endian -gdwarf-4 -O0 -ffunction-sections -w -I ../../FreeRTOS/Source/include-I./RTE/_FreeRTOS-Nano-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/CMSIS/Core/Include-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/Device/ARM/ARMCM4/Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o ./objects/port.o -MD)
-I (..\..\FreeRTOS\Source\include\portmacro.h)(0x6706070C)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h)(0x6569B012)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stddef.h)(0x6569B012)
-I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x67054647)
-I (..\..\FreeRTOS\Source\include\projdefs.h)(0x670606BE)
+I (..\..\FreeRTOS\Source\include\task.h)(0x671A3D14)
+F (..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4\port.c)(0x671A3987)(--c99 -c --cpu Cortex-M4 -D__MICROLIB --li -g -O0 --apcs=interwork --split_sections -I ..\..\FreeRTOS\Source\include -I ..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4-I.\RTE\_FreeRTOS-Nano-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o .\objects\port.o --omf_browse .\objects\port.crf --depend .\objects\port.d)
+I (..\..\FreeRTOS\Source\include\FreeRTOS.h)(0x671A3F0B)
+I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x671A3594)
+I (..\..\FreeRTOS\Source\include\projdefs.h)(0x671A35EB)
+I (..\..\FreeRTOS\Source\include\portable.h)(0x671A3509)
+I (..\..\FreeRTOS\Source\include\portmacro.h)(0x671A40A2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stdint.h)(0x5E8E3CC2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stddef.h)(0x5E8E3CC2)
 I (..\..\FreeRTOS\Source\include\list.h)(0x67018097)
-I (..\..\FreeRTOS\Source\include\task.h)(0x6706078F)
-F (..\..\FreeRTOS\Source\list.c)(0x6704F9A6)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=none -mfloat-abi=soft -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-mlittle-endian -gdwarf-4 -O0 -ffunction-sections -w -I ../../FreeRTOS/Source/include-I./RTE/_FreeRTOS-Nano-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/CMSIS/Core/Include-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/Device/ARM/ARMCM4/Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o ./objects/list.o -MD)
+I (..\..\FreeRTOS\Source\include\task.h)(0x671A3D14)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\ARMCM4.h)(0x626F4ADE)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\core_cm4.h)(0x626F4ADE)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_version.h)(0x626F4ADE)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_compiler.h)(0x626F4ADE)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_armcc.h)(0x626F4ADE)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\mpu_armv7.h)(0x626F4ADE)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\system_ARMCM4.h)(0x626F4ADE)
+F (..\..\FreeRTOS\Source\list.c)(0x671A360A)(--c99 -c --cpu Cortex-M4 -D__MICROLIB --li -g -O0 --apcs=interwork --split_sections -I ..\..\FreeRTOS\Source\include -I ..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4-I.\RTE\_FreeRTOS-Nano-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o .\objects\list.o --omf_browse .\objects\list.crf --depend .\objects\list.d)
+I (..\..\FreeRTOS\Source\include\FreeRTOS.h)(0x671A3F0B)
+I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x671A3594)
+I (..\..\FreeRTOS\Source\include\projdefs.h)(0x671A35EB)
+I (..\..\FreeRTOS\Source\include\portable.h)(0x671A3509)
+I (..\..\FreeRTOS\Source\include\portmacro.h)(0x671A40A2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stdint.h)(0x5E8E3CC2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stddef.h)(0x5E8E3CC2)
 I (..\..\FreeRTOS\Source\include\list.h)(0x67018097)
-I (..\..\FreeRTOS\Source\include\portmacro.h)(0x6706070C)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h)(0x6569B012)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stddef.h)(0x6569B012)
-I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x67054647)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stdlib.h)(0x5E8E3CC2)
 F (..\..\FreeRTOS\Source\include\list.h)(0x67018097)()
-F (..\..\FreeRTOS\Source\include\portmacro.h)(0x6706070C)()
-F (..\..\FreeRTOS\Source\task.c)(0x670608FD)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=none -mfloat-abi=soft -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-mlittle-endian -gdwarf-4 -O0 -ffunction-sections -w -I ../../FreeRTOS/Source/include-I./RTE/_FreeRTOS-Nano-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/CMSIS/Core/Include-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/Device/ARM/ARMCM4/Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o ./objects/task.o -MD)
-I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x67054647)
-I (..\..\FreeRTOS\Source\include\projdefs.h)(0x670606BE)
-I (..\..\FreeRTOS\Source\include\portmacro.h)(0x6706070C)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h)(0x6569B012)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stddef.h)(0x6569B012)
-I (..\..\FreeRTOS\Source\include\task.h)(0x6706078F)
+F (..\..\FreeRTOS\Source\include\portmacro.h)(0x671A40A2)()
+F (..\..\FreeRTOS\Source\task.c)(0x671A3410)(--c99 -c --cpu Cortex-M4 -D__MICROLIB --li -g -O0 --apcs=interwork --split_sections -I ..\..\FreeRTOS\Source\include -I ..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4-I.\RTE\_FreeRTOS-Nano-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o .\objects\task.o --omf_browse .\objects\task.crf --depend .\objects\task.d)
+I (..\..\FreeRTOS\Source\include\FreeRTOS.h)(0x671A3F0B)
+I (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x671A3594)
+I (..\..\FreeRTOS\Source\include\projdefs.h)(0x671A35EB)
+I (..\..\FreeRTOS\Source\include\portable.h)(0x671A3509)
+I (..\..\FreeRTOS\Source\include\portmacro.h)(0x671A40A2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stdint.h)(0x5E8E3CC2)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stddef.h)(0x5E8E3CC2)
 I (..\..\FreeRTOS\Source\include\list.h)(0x67018097)
-F (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x67054647)()
-F (..\..\FreeRTOS\Source\include\projdefs.h)(0x670606BE)()
+I (..\..\FreeRTOS\Source\include\task.h)(0x671A3D14)
+F (..\..\FreeRTOS\Source\include\FreeRTOSConfig.h)(0x671A3594)()
+F (..\..\FreeRTOS\Source\include\projdefs.h)(0x671A35EB)()
 F (..\..\FreeRTOS\Source\include\rtdef.h)(0x6705FADE)()
-F (..\..\FreeRTOS\Source\include\task.h)(0x6706078F)()
+F (..\..\FreeRTOS\Source\include\task.h)(0x671A3D14)()
+F (..\..\FreeRTOS\Source\include\FreeRTOS.h)(0x671A3F0B)()
 F (..\..\Doc\readme.txt)(0x66FE8F23)()
-F (RTE/Device/ARMCM4/ARMCM4_ac6.sct)(0x626F4ADE)()
-F (RTE/Device/ARMCM4/startup_ARMCM4.c)(0x626F4ADE)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=none -mfloat-abi=soft -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-mlittle-endian -gdwarf-4 -O0 -ffunction-sections -w -I ../../FreeRTOS/Source/include-I./RTE/_FreeRTOS-Nano-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/CMSIS/Core/Include-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/Device/ARM/ARMCM4/Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o ./objects/startup_armcm4.o -MD)
+F (RTE/Device/ARMCM4/system_ARMCM4.c)(0x626F4ADE)(--c99 -c --cpu Cortex-M4 -D__MICROLIB --li -g -O0 --apcs=interwork --split_sections -I ..\..\FreeRTOS\Source\include -I ..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4-I.\RTE\_FreeRTOS-Nano-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o .\objects\system_armcm4.o --omf_browse .\objects\system_armcm4.crf --depend .\objects\system_armcm4.d)
 I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\ARMCM4.h)(0x626F4ADE)
 I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\core_cm4.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h)(0x6569B012)
+I (D:\Keil\MDK539\ARM\ARMCC\include\stdint.h)(0x5E8E3CC2)
 I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_version.h)(0x626F4ADE)
 I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_compiler.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_armclang.h)(0x626F4ADE)
+I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_armcc.h)(0x626F4ADE)
 I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\mpu_armv7.h)(0x626F4ADE)
 I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\system_ARMCM4.h)(0x626F4ADE)
-F (RTE/Device/ARMCM4/system_ARMCM4.c)(0x626F4ADE)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=none -mfloat-abi=soft -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-mlittle-endian -gdwarf-4 -O0 -ffunction-sections -w -I ../../FreeRTOS/Source/include-I./RTE/_FreeRTOS-Nano-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/CMSIS/Core/Include-ID:/Keil/MDK539/ARM/CMSIS/5.9.0/Device/ARM/ARMCM4/Include-D__UVISION_VERSION="539" -D_RTE_ -DARMCM4 -D_RTE_-o ./objects/system_armcm4.o -MD)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\ARMCM4.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\core_cm4.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h)(0x6569B012)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_version.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_compiler.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_armclang.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\mpu_armv7.h)(0x626F4ADE)
-I (D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\system_ARMCM4.h)(0x626F4ADE)
+F (RTE/Device/ARMCM4/startup_ARMCM4.s)(0x626F4ADE)(--cpu Cortex-M4 --li -g --apcs=interwork --pd "__MICROLIB SETA 1"-I.\RTE\_FreeRTOS-Nano-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include-ID:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include--pd "__UVISION_VERSION SETA 539" --pd "_RTE_ SETA 1" --pd "ARMCM4 SETA 1" --pd "_RTE_ SETA 1"--list .\listings\startup_armcm4.lst --xref -o .\objects\startup_armcm4.o --depend .\objects\startup_armcm4.d)

@@ -8,6 +8,8 @@
  * @copyright Copyright (c) 2024 
  */
 
+#include "FreeRTOS.h"
+#include <stdlib.h>
 #include "list.h"
 
 /**

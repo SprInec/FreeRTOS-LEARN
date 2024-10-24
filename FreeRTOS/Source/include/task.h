@@ -15,35 +15,21 @@
 extern "C" {
 #endif
 
-#include "portmacro.h"
-#include "projdefs.h"
 #include "list.h"
 
-#define taskYIELD() portYIELD()
+#define taskYIELD()			portYIELD()
 
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY 15
-
+/* 任务句柄 */
 typedef void * TaskHandle_t;
 
-extern List_t pxReadyTasksLists[configMAX_PRIORITIES];
-
-// FIXME: 测试用
-/* 任务控制块 */
-typedef struct tskTaskControlBlock
-{
-    volatile StackType_t *pxTopOfStack;       /* 栈顶 */
-    ListItem_t xStateListItem;                /* 任务节点 */
-    StackType_t *pxStack;                     /* 任务栈起始地址 */
-    char pcTaskName[configMAX_TASK_NAME_LEN]; /* 任务名称 */
-} tskTCB;
-typedef tskTCB TCB_t;
-
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
 TaskHandle_t xTaskCreateStatic(TaskFunction_t pxTaskCode,
                                const char *const pcName,
                                const uint32_t ulStackDepth,
                                void *const pvParameters,
                                StackType_t *const puxStackBuffer,
                                TCB_t *const pxTaskBuffer);
+#endif /* configSUPPORT_STATIC_ALLOCATION */
 
 void prvInitialiseTaskLists(void);
 void vTaskStartScheduler(void);

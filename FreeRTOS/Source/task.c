@@ -9,23 +9,15 @@
  * 
  */
 
-#include "FreeRTOSConfig.h"
-#include "projdefs.h"
+#include "FreeRTOS.h"
 #include "task.h"
-#include "list.h"
-#include "portmacro.h"
 
-// FIXME: 测试用
-extern TCB_t Task1TCB;
-extern TCB_t Task2TCB;
-
-TCB_t *pxCurrentTCB; /* 正在/即将运行的任务控制块 */
+TCB_t * volatile pxCurrentTCB = NULL; /* 正在/即将运行的任务控制块 */
 
 /* 任务就绪列表 */
 List_t pxReadyTasksLists[configMAX_PRIORITIES];
 
-StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters);
-BaseType_t xPortStartScheduler(void);
+static volatile UBaseType_t uxCurrentNumberOfTasks = (UBaseType_t)0U;
 
 /**
  * @brief 
@@ -144,10 +136,9 @@ void prvInitialiseTaskLists(void)
     }
 }
 
-/**
- * @brief 启动调度器
- * 
- */
+// FIXME: 测试用
+extern TCB_t Task1TCB;
+extern TCB_t Task2TCB;
 void vTaskStartScheduler(void)
 {
     // FIXME: 测试用

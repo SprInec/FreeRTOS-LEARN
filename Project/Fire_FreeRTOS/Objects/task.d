@@ -1,8 +1,10 @@
-./objects/task.o: ..\..\FreeRTOS\Source\task.c \
-  ..\..\FreeRTOS\Source\include\FreeRTOSConfig.h \
-  ..\..\FreeRTOS\Source\include\projdefs.h \
-  ..\..\FreeRTOS\Source\include\portmacro.h \
-  D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h \
-  D:\Keil\MDK539\ARM\ARMCLANG\include\stddef.h \
-  ..\..\FreeRTOS\Source\include\task.h \
-  ..\..\FreeRTOS\Source\include\list.h
+.\objects\task.o: ..\..\FreeRTOS\Source\task.c
+.\objects\task.o: ..\..\FreeRTOS\Source\include\FreeRTOS.h
+.\objects\task.o: ..\..\FreeRTOS\Source\include\FreeRTOSConfig.h
+.\objects\task.o: ..\..\FreeRTOS\Source\include\projdefs.h
+.\objects\task.o: ..\..\FreeRTOS\Source\include\portable.h
+.\objects\task.o: ..\..\FreeRTOS\Source\include\portmacro.h
+.\objects\task.o: D:\Keil\MDK539\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\task.o: D:\Keil\MDK539\ARM\ARMCC\Bin\..\include\stddef.h
+.\objects\task.o: ..\..\FreeRTOS\Source\include\list.h
+.\objects\task.o: ..\..\FreeRTOS\Source\include\task.h

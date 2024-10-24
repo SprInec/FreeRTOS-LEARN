@@ -9,21 +9,21 @@
  * 
  */
 
-#include "FreeRTOSConfig.h"
+#include "FreeRTOS.h"
 #include "task.h"
-#include "portmacro.h"
-#include "projdefs.h"
 
 /* 定义任务栈 */
-#define TASK1_STACK_SIZE 128
+#define TASK1_STACK_SIZE 20
 StackType_t Task1Stack[TASK1_STACK_SIZE];
 
-#define TASK2_STACK_SIZE 128
+#define TASK2_STACK_SIZE 20
 StackType_t Task2Stack[TASK2_STACK_SIZE];
 
 /* 定义任务标志 */
 portCHAR flag1 = 1;
 portCHAR flag2 = 0;
+
+extern List_t pxReadyTasksLists[configMAX_PRIORITIES];
 
 /* 定义任务控制块 */
 TCB_t Task1TCB;
@@ -50,7 +50,7 @@ int main(void)
 
     /* 将任务添加到就绪列表 */
     vListInsertEnd(&(pxReadyTasksLists[1]),
-                   &(((TCB_t*)&Task1TCB)->xStateListItem));
+                   &(((TCB_t*)(&Task1TCB))->xStateListItem));
 
     Task2_Handle =
         xTaskCreateStatic((TaskFunction_t)Task2_Entry,
@@ -62,7 +62,7 @@ int main(void)
 
     /* 将任务添加到就绪列表 */
     vListInsertEnd(&(pxReadyTasksLists[2]),
-                   &(((TCB_t*)&Task2TCB)->xStateListItem));
+                   &(((TCB_t*)(&Task2TCB))->xStateListItem));
 
     /* 启动调度器, 开启多任务调度, 启动成功则不返回 */
     vTaskStartScheduler();

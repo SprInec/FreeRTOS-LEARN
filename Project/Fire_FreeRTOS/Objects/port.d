@@ -1,8 +1,17 @@
-./objects/port.o: ..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4\port.c \
-  ..\..\FreeRTOS\Source\include\portmacro.h \
-  D:\Keil\MDK539\ARM\ARMCLANG\include\stdint.h \
-  D:\Keil\MDK539\ARM\ARMCLANG\include\stddef.h \
-  ..\..\FreeRTOS\Source\include\FreeRTOSConfig.h \
-  ..\..\FreeRTOS\Source\include\projdefs.h \
-  ..\..\FreeRTOS\Source\include\list.h \
-  ..\..\FreeRTOS\Source\include\task.h
+.\objects\port.o: ..\..\FreeRTOS\Source\portable\RVDS\ARM_CM4\port.c
+.\objects\port.o: ..\..\FreeRTOS\Source\include\FreeRTOS.h
+.\objects\port.o: ..\..\FreeRTOS\Source\include\FreeRTOSConfig.h
+.\objects\port.o: ..\..\FreeRTOS\Source\include\projdefs.h
+.\objects\port.o: ..\..\FreeRTOS\Source\include\portable.h
+.\objects\port.o: ..\..\FreeRTOS\Source\include\portmacro.h
+.\objects\port.o: D:\Keil\MDK539\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\port.o: D:\Keil\MDK539\ARM\ARMCC\Bin\..\include\stddef.h
+.\objects\port.o: ..\..\FreeRTOS\Source\include\list.h
+.\objects\port.o: ..\..\FreeRTOS\Source\include\task.h
+.\objects\port.o: D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\ARMCM4.h
+.\objects\port.o: D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\core_cm4.h
+.\objects\port.o: D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_version.h
+.\objects\port.o: D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_compiler.h
+.\objects\port.o: D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\cmsis_armcc.h
+.\objects\port.o: D:\Keil\MDK539\ARM\CMSIS\5.9.0\CMSIS\Core\Include\mpu_armv7.h
+.\objects\port.o: D:\Keil\MDK539\ARM\CMSIS\5.9.0\Device\ARM\ARMCM4\Include\system_ARMCM4.h
