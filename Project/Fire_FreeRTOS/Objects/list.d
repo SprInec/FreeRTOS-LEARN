@@ -1,1 +1,10 @@
-./objects/list.o: ..\..\FreeRTOS\Source\list.c
+.\objects\list.o: ..\..\FreeRTOS\Source\list.c
+.\objects\list.o: ..\..\FreeRTOS\Source\include\FreeRTOS.h
+.\objects\list.o: ..\..\FreeRTOS\Source\include\FreeRTOSConfig.h
+.\objects\list.o: ..\..\FreeRTOS\Source\include\projdefs.h
+.\objects\list.o: ..\..\FreeRTOS\Source\include\portable.h
+.\objects\list.o: ..\..\FreeRTOS\Source\include\portmacro.h
+.\objects\list.o: D:\Keil\MDK539\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\list.o: D:\Keil\MDK539\ARM\ARMCC\Bin\..\include\stddef.h
+.\objects\list.o: ..\..\FreeRTOS\Source\include\list.h
+.\objects\list.o: D:\Keil\MDK539\ARM\ARMCC\Bin\..\include\stdlib.h

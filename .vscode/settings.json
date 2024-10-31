@@ -1,6 +1,12 @@
 {
     "files.associations": {
         "list.h": "c",
-        "freertosconfig.h": "c"
+        "freertosconfig.h": "c",
+        "projdefs.h": "c",
+        "task.h": "c",
+        "freertos.h": "c",
+        "portmacro.h": "c",
+        "stdlib.h": "c",
+        "corecrt_wstdlib.h": "c"
     }
 }
