@@ -1,0 +1,13 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/**"
+            ],
+            "configurationProvider": "cl.eide"
+        }
+    ],
+    "version": 4
+}
