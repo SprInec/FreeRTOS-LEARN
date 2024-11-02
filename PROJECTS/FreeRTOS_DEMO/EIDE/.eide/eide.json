@@ -196,7 +196,9 @@
   },
   "targets": {
     "FreeRTOS_DEMO": {
-      "excludeList": [],
+      "excludeList": [
+        "<virtual_root>/DemoCode/Src/static_task_demo.c"
+      ],
       "toolchain": "AC5",
       "compileConfig": {
         "cpuType": "Cortex-M4",

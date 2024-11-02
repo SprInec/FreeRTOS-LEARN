@@ -44,21 +44,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static TaskHandle_t AppTaskCreate_Handle;
-static TaskHandle_t LED_Task_Handle;
-
-static StackType_t AppTaskCreate_Stack[128];
-static StackType_t LED_Task_Stack[128];
-
-static StaticTask_t AppTaskCreate_TCB;
-static StaticTask_t LED_Task_TCB;
-
-static StackType_t Idle_Task_Stack[configMINIMAL_STACK_SIZE];
-static StackType_t Timer_Task_Stack[configMINIMAL_STACK_SIZE];
-
-static StaticTask_t Idle_Task_TCB;
-static StaticTask_t Timer_Task_TCB;
-
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t LED1_Task_Handle = NULL;
+static TaskHandle_t LED2_Task_Handle = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,81 +57,50 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void LED_Task(void *parameter)
+static void LED1_Task(void* argument)
 {
     while(1)
     {
-        __BSP_LED2_Toggle();
-        vTaskDelay(pdMS_TO_TICKS(100));
-        __BSP_LED2_Toggle();
-        vTaskDelay(pdMS_TO_TICKS(100));
+        __BSP_LED1_Ficker(500);
     }
 }
 
-void AppTaskCreate(void *parameter)
+static void LED2_Task(void *argument)
 {
-    taskENTER_CRITICAL();
-    printf("AppTaskCreate running\r\n");
-    LED_Task_Handle = xTaskCreateStatic((TaskFunction_t)LED_Task,
-                                        (const char *)"LED_Task",
-                                        (uint32_t)256,
-                                        (void *)NULL,
-                                        (UBaseType_t)9,
-                                        (StackType_t *)LED_Task_Stack,
-                                        (StaticTask_t *)&LED_Task_TCB);
-    if (NULL != LED_Task_Handle)
-        printf("LED_Task created successfully\r\n");
-    else
-        printf("LED_Task creation failed\r\n");
+    while (1)
+    {
+        __BSP_LED2_Ficker(200);
+    }
+}
 
-    vTaskDelete(AppTaskCreate_Handle);
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn1 = pdPASS;
+    BaseType_t xReturn2 = pdPASS;
+
+    taskENTER_CRITICAL();
+
+    xReturn1 = xTaskCreate(LED1_Task,
+                          "LED1_Task",
+                          512,      
+                          NULL,
+                          2,
+                          &LED1_Task_Handle);
+
+    xReturn2 = xTaskCreate(LED2_Task,
+                          "LED2_Task",
+                          512,
+                          NULL,
+                          3,
+                          &LED2_Task_Handle);
+
+    if (pdPASS == xReturn1 && pdPASS == xReturn2)
+        printf("LED_Task created successfully.\r\n");
+
+    vTaskDelete(APPCreate_Handle);
+
     taskEXIT_CRITICAL();
 }
-
-void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
-                                   StackType_t **ppxIdleTaskStackBuffer,
-                                   uint32_t *pulIdleTaskStackSize) 
-{
-    *ppxIdleTaskTCBBuffer = &Idle_Task_TCB;
-    *ppxIdleTaskStackBuffer = Idle_Task_Stack;
-    *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
-
-    printf("Idle_Task_Stack size: %d\r\n", *pulIdleTaskStackSize);
-}
-
-void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
-                                    StackType_t **ppxTimerTaskStackBuffer,
-                                    uint32_t *pulTimerTaskStackSize)
-{
-    *ppxTimerTaskTCBBuffer = &Timer_Task_TCB;
-    *ppxTimerTaskStackBuffer = Timer_Task_Stack;
-    *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH; 
-    
-    printf("Timer_Task_Stack size: %d\r\n", *pulTimerTaskStackSize);
-}
-
-void LED1_Task(void *parameter)
-{
-    while(1)
-    {
-        __BSP_LED1_Toggle();
-        vTaskDelay(pdMS_TO_TICKS(500));
-        __BSP_LED1_Toggle();
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-}
-
-void LED2_Task(void *parameter)
-{
-  while (1)
-  {
-    __BSP_LED2_Toggle();
-    vTaskDelay(pdMS_TO_TICKS(500));
-    __BSP_LED2_Toggle();
-    vTaskDelay(pdMS_TO_TICKS(500));
-  }
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -176,37 +133,32 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+
+  BaseType_t xReturn = pdPASS;
+
   BSP_LED_Init();
   printf("FreeRTOS Demo Application.\r\n");
 
-  AppTaskCreate_Handle = xTaskCreateStatic((TaskFunction_t)AppTaskCreate,
-                                           (const char *)"AppTaskCreate", 
-                                           (uint32_t)256,             
-                                           (void *)NULL,         
-                                           (UBaseType_t)8,     
-                                           (StackType_t *)AppTaskCreate_Stack,
-                                           (StaticTask_t *)&AppTaskCreate_TCB);
-  
-  if (NULL != AppTaskCreate_Handle){
-      printf("Scheduler started successfully\r\n");
+  xReturn = xTaskCreate(AppTaskCreate,
+                        "AppTaskCreate",
+                        512,
+                        NULL,
+                        1,
+                        &APPCreate_Handle);
+  if (pdPASS == xReturn)
+  {
+      printf("AppTaskCreate created successfully.\r\n");
+      vTaskStartScheduler();
   }
-  else {
-      printf("AppTaskCreate creation failed\r\n");
-  }
-  
-  // xTaskCreate((TaskFunction_t)LED1_Task, (const char *)"LED1_Task", 128, NULL, 1, NULL);
-  // xTaskCreate((TaskFunction_t)LED2_Task, (const char *)"LED2_Task", 128, NULL, 1, NULL);
-
-  // 启动调度器
-  vTaskStartScheduler();
-  printf("Scheduler start failed\r\n");
-
+  else
+      return -1;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    vTaskSuspend(LED1_Task_Handle)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

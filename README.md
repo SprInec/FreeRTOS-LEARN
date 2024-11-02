@@ -1382,7 +1382,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 
 主要是添加了 libstm 库的配置头文件 `bsp_config.h` 以及 libstm 库中 LED 的初始化函数 `BSP_LED_Init()`。
 
-> libstm 库的 bsp_config.h 头文件同样兼容了 CMSIS Configuration Wizard，支持可视化配置，在 bsp_config.h 的 RTOS 选项中选择 FreeRTOS 即可自动包含 FreeRTOS 的相关头文件。 
+> libstm 库的 `bsp_config.h` 头文件同样兼容了 CMSIS Configuration Wizard，支持可视化配置，在 `bsp_config.h` 的 RTOS 选项中选择 FreeRTOS 即可自动包含 FreeRTOS 的相关头文件。 
 
 执行到 `BSP_LED_Init()` 函数的时候，操作系统完全都还没有涉及到，即 `BSP_LED_Init()` 函数所做的工作跟我们以前编写的裸机工程里面的硬件初始化工作是一致的。可以简单理解为在创建任务并开启调度器之前，都处于裸机编程的范畴，在此阶段我们可以使用裸机开发的相关经验，对硬件初始化及一些相关的配置进行串口输出或者 LED，LCD 等方式的调试。
 
@@ -1815,15 +1815,1428 @@ void assert_failed(uint8_t *file, uint32_t line)
 
 >  遇到问题：[单独一个静态任务运行卡死](#单独一个静态任务运行卡死)
 
+#### 2.8 下载验证
+
+程序编译好后下载到开发板验证程序，若 LED 灯闪烁，说明创建的单任务正常运行。在当前这个例程，任务的栈，任务的控制块用的都是静态内存，必须由用户预先定义，这种方法我们在使用 FreeRTOS 的时候用的比较少，通常的方法是在任务创建的时候动态的分配任务栈和任务控制块的内存空间。
+
+### 3. 创建单任务 - SRAM 动态内存
+
+这里，我们创建一个单任务，任务使用的栈和任务控制块是在创建任务的时候 FreeRTOS 动态分配的，并不是预先定义好的全局变量。
+
+#### 3.1 动态内存空间的堆从哪里来
+
+在 *创建单任务—SRAM 静态内存* 的例程中，任务控制块和任务栈的内存空间都是从内部的 SRAM 里面分配的，具体分配到哪个地址由编译器决定。现在我们开始使用动态内存，即堆，其实堆也是内存，也属于 SRAM。FreeRTOS 做法是在 SRAM 里面定义一个大数组，也就是堆内存，供 FreeRTOS 的动态内存分配函数使用，在第一次使用的时候，系统会将定义的堆内存进行初始化，这些代码在 FreeRTOS 提供的内存管理方案中实现（ `heap_1.c`、`heap_2.c`、`heap_4.c` 等 )。
+
+```c
+//系统所有总的堆大小
+#define configTOTAL_HEAP_SIZE ((size_t)(36*1024))
+static uint8_t ucHeap[ configTOTAL_HEAP_SIZE ];
+/* 如果这是第一次调用 malloc 那么堆将需要初始化，以设置空闲块列表。*/
+if ( pxEnd == NULL )
+{
+	prvHeapInit();
+} 
+else {
+	mtCOVERAGE_TEST_MARKER();
+}
+```
+
+- 堆内存的大小为 `configTOTAL_HEAP_SIZE` ， 在 `FreeRTOSConfig.h` 中由我们自己定义，`configSUPPORT_DYNAMIC_ALLOCATION` 这个宏定义在使用 FreeRTOS 操作系统的时候必须开启。
+- 从内部 SRAMM 里面定义一个静态数组 `ucHeap`，大小由 `configTOTAL_HEAP_SIZE` 这个宏决定，目前定义为36KB。定义的堆大小不能超过内部 SRAM 的总大小。
+- 如果这是第一次调用 `malloc` 那么需要将堆进行初始化，以设置空闲块列表，方便以后分配内存，初始化完成之后会取得堆的结束地址，在 MemMang 中的 5 个内存分配 `heap_x.c` 文件中实现。
+
+#### 3.2 定义任务函数
+
+使用动态内存的时候，任务的主体函数与使用静态内存时是一样的。
+
+```c
+static void LED_Task(void* argument)
+{
+    while(1)
+    {
+        __BSP_LED1_Ficker(500);
+    }
+}
+```
+
+**任务必须是一个死循环**，否则任务将通过 LR 返回，如果 LR 指向了非法的内存就会产生 HardFault_Handler，而FreeRTOS 指向一个任务退出函数 `prvTaskExitError()`，里面是一个死循环，那么任务返回之后就在死循环中执行，这样子的任务是不安全的，所以避免这种情况，任务一般都是死循环并且无返回值的。我们的` AppTaskCreate` 任务，执行一次之后就进行删除，则不影响系统运行，所以，**只执行一次的任务在执行完毕要记得及时删除。**
+
+任务里面的延时函数必须使用 FreeRTOS 里面提供的延时函数。
+
+#### 3.3 定义任务栈
+
+使用动态内存的时候，任务栈在任务创建的时候创建，不用跟使用静态内存那样要预先定义好一个全局的静态的栈空间，动态内存就是按需分配内存，随用随取。
+
+#### 3.4 定义任务控制块指针
+
+使用动态内存时候，不用跟使用静态内存那样要预先定义好一个全局的静态的任务控制块空间。任务控制块是在任务创建的时候分配内存空间创建，任务创建函数会返回一个指针，用于指向任务控制块，所以要预先为任务栈定义一个任务控制块指针，也是我们常说的任务句柄。
+
+任务句柄是一个指针，用于指向一个任务，当任务创建好之后，它就具有了一个任务句柄，以后我们要想操作这个任务都需要通过这个任务句柄，如果是自身的任务操作自己，那么这个句柄可以为NULL。
+
+```c
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t LED_Task_Handle = NULL;
+```
+
+#### 3.5 动态创建任务
+
+ 使用静态内存时，使用 `xTaskCreateStatic()` 来创建一个任务，而使用动态内存的时，则使用 `xTaskCreate()` 函数来创建一个任务，两者的函数名不一样，具体的形参也有区别。
+
+```c
+xReturn = xTaskCreate(AppTaskCreate,
+                      "AppTaskCreate",
+                      512,
+                      NULL,
+                      1,
+                      &APPCreate_Handle);
+```
+
+#### 3.6 启动任务
+
+```c
+if (pdPASS == xReturn)
+{
+	printf("AppTaskCreate created successfully.\r\n")
+    vTaskStartScheduler();
+}
+```
+
+#### 3.7 main.c 内容全貌
+
+```c
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t LED_Task_Handle = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void LED_Task(void* argument)
+{
+    while(1)
+    {
+        __BSP_LED1_Ficker(500);
+    }
+}
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    taskENTER_CRITICAL();
+
+    xReturn = xTaskCreate(LED_Task,
+                          "LED_Task",
+                          512,      
+                          NULL,
+                          2,
+                          &LED_Task_Handle);
+
+    if (pdPASS == xReturn)
+        printf("LED_Task created successfully.\r\n");
+
+    vTaskDelete(APPCreate_Handle);
+
+    taskEXIT_CRITICAL();
+}
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  /* USER CODE BEGIN 2 */
+
+  BaseType_t xReturn = pdPASS;
+
+  BSP_LED_Init();
+  printf("FreeRTOS Demo Application.\r\n");
+
+  xReturn = xTaskCreate(AppTaskCreate,
+                        "AppTaskCreate",
+                        512,
+                        NULL,
+                        1,
+                        &APPCreate_Handle);
+  if (pdPASS == xReturn)
+  {
+      printf("AppTaskCreate created successfully.\r\n");
+      vTaskStartScheduler();
+  }
+  else
+      return -1;
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 72;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM2 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM2) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+#### 3.8 下载验证
+
+程序编译好后下载到开发板验证程序，若 LED 灯闪烁，说明创建的单任务正常运行。
+
+### 4. 创建多任务 - SRAM 动态内存
+
+创建多任务只需要按照创建单任务的套路依葫芦画瓢即可，接下来我们创建两个任务，任务 1 让一个 LED 灯闪烁，任务 2 让另外一个 LED 闪烁，两个 LED 闪烁的频率不一样，两个任务的优先级不一样。
+
+#### 4.1 main.c 内容全貌
+
+```c
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t LED1_Task_Handle = NULL;
+static TaskHandle_t LED2_Task_Handle = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void LED1_Task(void* argument)
+{
+    while(1)
+    {
+        __BSP_LED1_Ficker(500);
+    }
+}
+
+static void LED2_Task(void *argument)
+{
+    while (1)
+    {
+        __BSP_LED2_Ficker(200);
+    }
+}
+
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn1 = pdPASS;
+    BaseType_t xReturn2 = pdPASS;
+
+    taskENTER_CRITICAL();
+
+    xReturn1 = xTaskCreate(LED1_Task,
+                          "LED1_Task",
+                          512,      
+                          NULL,
+                          2,
+                          &LED1_Task_Handle);
+
+    xReturn2 = xTaskCreate(LED2_Task,
+                          "LED2_Task",
+                          512,
+                          NULL,
+                          3,
+                          &LED2_Task_Handle);
+
+    if (pdPASS == xReturn1 && pdPASS == xReturn2)
+        printf("LED_Task created successfully.\r\n");
+
+    vTaskDelete(APPCreate_Handle);
+
+    taskEXIT_CRITICAL();
+}
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  /* USER CODE BEGIN 2 */
+
+  BaseType_t xReturn = pdPASS;
+
+  BSP_LED_Init();
+  printf("FreeRTOS Demo Application.\r\n");
+
+  xReturn = xTaskCreate(AppTaskCreate,
+                        "AppTaskCreate",
+                        512,
+                        NULL,
+                        1,
+                        &APPCreate_Handle);
+  if (pdPASS == xReturn)
+  {
+      printf("AppTaskCreate created successfully.\r\n");
+      vTaskStartScheduler();
+  }
+  else
+      return -1;
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 72;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM2 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM2) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+目前多任务我们只创建了两个，如果要创建 3 个、4 个甚至更多都是同样的套路，容易忽略的地方是任务栈的大小，每个任务的优先级。大的任务，栈空间要设置大一点，重要的任务优先级要设置的高一点。
+
+#### 4.2 下载验证
+
+程序编译好后下载到开发板验证程序，若两个 LED 灯闪烁，说明创建的单任务正常运行。
+
+## 三. FreeRTOS 的启动流程
+
+在目前的 RTOS 中，主要有两种比较流行的启动方式，第三种方式是 RT-Thread 中所采用的那种。
+
+### 1. 万事俱备，只欠东风
+
+第一种野火称之为万事俱备，只欠东风法。这种方法是在 `main` 函数中将硬件初始化，RTOS 系统初始化，所有任务的创建这些都弄好，这个称之为万事都已经准备好。最后只欠一道东风，即启动 RTOS 的调度器，开始多任务的调度，伪代码实现如下：
+
+```c
+int main (void)
+{
+	/* 硬件初始化 */
+	HardWare_Init(); 
+
+	/* RTOS 系统初始化 */
+	RTOS_Init();
+
+	/* 创建任务1，但任务1 不会执行，因为调度器还没有开启 */ 
+	RTOS_TaskCreate(Task1);
+	/* 创建任务2，但任务2 不会执行，因为调度器还没有开启 */
+	RTOS_TaskCreate(Task2);
+
+	/* ......继续创建各种任务 */
+
+	/* 启动RTOS，开始调度 */
+	RTOS_Start();
+}
+
+void Task1( void *arg )
+{
+	while (1)
+	{
+	/* 任务实体，必须有阻塞的情况出现 */
+	}
+}
+
+void Task1( void *arg )
+{
+	while (1)
+	{ 
+    	/* 任务实体，必须有阻塞的情况出现 */
+	}
+}
+```
+
+1. 硬件初始化。硬件初始化这一步还属于裸机的范畴，我们可以把需要使用到的硬件都初始化好而且测试好，确保无误。
+
+2. RTOS 系统初始化。比如 RTOS 里面的全局变量的初始化，空闲任务的创建等。不同的 RTOS，它们的初始化有细微的差别。
+
+3. 创建各种任务。这里把所有要用到的任务都创建好，但还不会进入调度，因为这个时候 RTOS 的调度器还没有开启。
+
+4. 启动 RTOS 调度器，开始任务调度。这个时候调度器就从刚刚创建好的任务中选择一个优先级最高的任务开始运行。
+
+5. 任务实体通常是一个不带返回值的无限循环的 C 函数，函数体必须有阻塞的情况出现，不然任务（如果优先权恰好是最高）会一直在 while 循环里面执行，导致其它任务没有执行的机会。
+
+### 2. 小心翼翼，十分谨慎
+
+第二种野火称之为小心翼翼，十分谨慎法。这种方法是在 `main` 函数中将硬件和 RTOS 系统先初始化好，然后创建一个启动任务后就启动调度器，然后在启动任务里面创建各种应用任务，当所有任务都创建成功后，启动任务把自己删除，伪代码实现如下：
+
+```c
+int main (void)
+{
+	/* 硬件初始化 */
+	HardWare_Init(); (1)
+
+	/* RTOS 系统初始化 */
+	RTOS_Init(); (2)
+    
+	/* 创建一个任务 */
+	RTOS_TaskCreate(AppTaskCreate); (3)
+
+	/* 启动RTOS，开始调度 */
+	RTOS_Start(); (4)
+}
+
+/* 起始任务，在里面创建任务 */
+void AppTaskCreate( void *arg ) (5)
+{
+	/* 创建任务1，然后执行 */
+	RTOS_TaskCreate(Task1); (6)
+    
+	/* 当任务1 阻塞时，继续创建任务2，然后执行 */
+	RTOS_TaskCreate(Task2);
+
+	/* ......继续创建各种任务 */
+
+	/* 当任务创建完成，删除起始任务 */
+	RTOS_TaskDelete(AppTaskCreate); (7)
+}
+
+void Task1( void *arg ) (8)
+{
+	while (1)
+	{
+		/* 任务实体，必须有阻塞的情况出现 */
+	}
+}
+void Task2( void *arg ) (9)
+{
+	while (1)
+	{
+		/* 任务实体，必须有阻塞的情况出现 */
+	}
+}
+```
+
+### 3. RT-Thread 启动方法
+
+> 参考：[RT-Thread 文档中心 / RT-Thread 标准版 / 内核 / RT-Thread 启动流程](https://www.rt-thread.org/document/site/#/rt-thread-version/rt-thread-standard/programming-manual/basic/basic?id=rt-thread-%e5%90%af%e5%8a%a8%e6%b5%81%e7%a8%8b)
+
+不同于 FreeRTOS，`rtthread_startup()` 函数是 RT-Thread 规定的统一启动入口。一般执行顺序是：系统先从启动文件开始运行，然后进入 RT-Thread 的启动函数 `rtthread_startup()` ，最后进入用户入口函数 `main()`。
+
+为了在进入 `main()` 之前完成 RT-Thread 系统功能初始化，RT-Thread 使用了 MDK 的扩展功能 `$Sub$$` 和 `$Super$$`。可以给 main 添加 `$Sub$$` 的前缀符号作为一个新功能函数 `$Sub$$main`，这个 `$Sub$$main` 可以先调用一些要补充在 main 之前的功能函数（这里添加 RT-Thread 系统启动，进行系统一系列初始化），再调用 `$Super$$main` 转到 `main()`  函数执行，这样可以让用户不用去管 `main()` 之前的系统初始化操作。
+
+关于 `$Sub$$` 和 `$Super$$` 扩展功能的使用，详见 [ARM® Compiler v5.06 for µVision®armlink User Guide](http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0377g/pge1362065967698.html)。
+
+```c
+/* $Sub$$main 函数 */
+int $Sub$$main(void)
+{
+  rtthread_startup();
+  return 0;
+}
+```
+
+在这里 `$Sub$$main` 函数调用了 `rtthread_startup()` 函数，其中 `rtthread_startup()` 函数的代码如下所示：
+
+```c
+int rtthread_startup(void)
+{
+    rt_hw_interrupt_disable();
+
+    /* 板级初始化：需在该函数内部进行系统堆的初始化 */
+    rt_hw_board_init();
+
+    /* 打印 RT-Thread 版本信息 */
+    rt_show_version();
+
+    /* 定时器初始化 */
+    rt_system_timer_init();
+
+    /* 调度器初始化 */
+    rt_system_scheduler_init();
+
+#ifdef RT_USING_SIGNALS
+    /* 信号初始化 */
+    rt_system_signal_init();
+#endif
+
+    /* 由此创建一个用户 main 线程 */
+    rt_application_init();
+
+    /* 定时器线程初始化 */
+    rt_system_timer_thread_init();
+
+    /* 空闲线程初始化 */
+    rt_thread_idle_init();
+
+    /* 启动调度器 */
+    rt_system_scheduler_start();
+
+    /* 不会执行至此 */
+    return 0;
+}
+```
+
+### 4. 孰优孰劣
+
+有关1，2 这两种方法孰优孰劣暂时没发现，根据开发者的喜好决定。LiteOS 和 ucos 第一种和第二种都可以使用，由用户选择，FreeRTOS 则默认使用第二种。接下来详细讲解 FreeRTOS 的启动流程。
+
+### 5. RT-Thread 启动流程
+
+在系统上电的时候第一个执行的是启动文件里面由汇编编写的复位函数 `Reset_Handler`，复位函数的最后会调用 C 库函数 `__main`。`__main` 函数的主要工作是初始化系统的堆和栈，最后调用 C 中的 `main` 函数，从而去到 C 的世界。
+
+```
+Reset_Handler PROC
+	EXPORT Reset_Handler [WEAK]
+	IMPORT __main
+	IMPORT SystemInit
+	LDR R0, =SystemInit
+	BLX R0
+	LDR R0, =__main
+	BX R0
+	ENDP
+```
+
+#### 5.1 创建任务 xTaskCreate() 函数
+
+在 `main()` 函数中，直接可以对 FreeRTOS 进行创建任务操作，因为 FreeRTOS 会自动帮我们做初始化的事情，比如初始化堆内存。FreeRTOS 的简单方便是在别的实时操作系统上都没有的，像 RT-Tharead，需要做很多事情；华为 LiteOS 也需要用户进行初始化内核。
+
+这种简单的特点使得 FreeRTOS 在初学的时候变得很简单，我们自己在 `main()` 函数中直接初始化我们的板级外设——`BSP_Init()`，然后进行任务的创建即可——`xTaskCreate()`，在任务创建中，FreeRTOS 会帮我们进行一系列的系统初始化，在创建任务的时候，会帮我们初始化堆内存。
+
+`xTaskCreate` 函数内部进行堆内存初始化：
+
+```c
+BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
+						const char * const pcName,
+						const uint16_t usStackDepth,
+						void * const pvParameters,
+						UBaseType_t uxPriority,
+						TaskHandle_t * const pxCreatedTask )
+{
+	if ( pxStack != NULL ) {
+		/* 分配任务控制块内存 */
+		pxNewTCB = ( TCB_t * ) pvPortMalloc( sizeof( TCB_t ) );
+
+		if ( pxNewTCB != NULL ) {
+			/* 将堆栈位置存储在TCB 中。*/
+			pxNewTCB->pxStack = pxStack;
+		}
+	}
+    /*
+	省略代码
+	......
+	*/
+}
+
+/* 分配内存函数 */
+void *pvPortMalloc( size_t xWantedSize )
+{
+	BlockLink_t *pxBlock, *pxPreviousBlock, *pxNewBlockLink;
+	void *pvReturn = NULL;
+    
+	vTaskSuspendAll();
+	{
+        /*如果这是对malloc 的第一次调用，那么堆将需要初始化来设置空闲块列表。*/
+        if ( pxEnd == NULL ) {
+            prvHeapInit();
+        } 
+        else {
+            mtCOVERAGE_TEST_MARKER();
+        }
+        /*
+        省略代码
+        ......
+        */
+	}
+}
+```
+
+在未初始化内存的时候一旦调用了 `xTaskCreate()` 函数，FreeRTOS 就会帮我们自动进行内存的初始化，内存的初始化具体见下面代码。注意，此函数是 FreeRTOS 内部调用的，目前我们暂时不用管这个函数的实现。
+
+```c
+static void prvHeapInit( void )
+{
+	BlockLink_t *pxFirstFreeBlock;
+	uint8_t *pucAlignedHeap;
+	size_t uxAddress;
+	size_t xTotalHeapSize = configTOTAL_HEAP_SIZE;
+
+	uxAddress = ( size_t ) ucHeap;
+	/* 确保堆在正确对齐的边界上启动。*/
+	if ( ( uxAddress & portBYTE_ALIGNMENT_MASK ) != 0 ) {
+		uxAddress += ( portBYTE_ALIGNMENT - 1 );
+		uxAddress &= ~( ( size_t ) portBYTE_ALIGNMENT_MASK );
+		xTotalHeapSize -= uxAddress - ( size_t ) ucHeap;
+	}
+
+	pucAlignedHeap = ( uint8_t * ) uxAddress;
+
+	/* xStart 用于保存指向空闲块列表中第一个项目的指针。void 用于防止编译器警告*/
+	xStart.pxNextFreeBlock = ( void * ) pucAlignedHeap;
+	xStart.xBlockSize = ( size_t ) 0;
+
+	/* pxEnd 用于标记空闲块列表的末尾，并插入堆空间的末尾。*/
+	uxAddress = ( ( size_t ) pucAlignedHeap ) + xTotalHeapSize;
+	uxAddress -= xHeapStructSize;
+	uxAddress &= ~( ( size_t ) portBYTE_ALIGNMENT_MASK );
+	pxEnd = ( void * ) uxAddress;
+	pxEnd->xBlockSize = 0;
+	pxEnd->pxNextFreeBlock = NULL;
+
+	/* 首先，有一个空闲块，其大小可以占用整个堆空间，减去pxEnd 占用的空间。*/
+	pxFirstFreeBlock = ( void * ) pucAlignedHeap;
+	pxFirstFreeBlock->xBlockSize = uxAddress - ( size_t ) pxFirstFreeBlock;
+	pxFirstFreeBlock->pxNextFreeBlock = pxEnd;
+
+	/* 只存在一个块 - 它覆盖整个可用堆空间。因为是刚初始化的堆内存*/
+	xMinimumEverFreeBytesRemaining = pxFirstFreeBlock->xBlockSize;
+	xFreeBytesRemaining = pxFirstFreeBlock->xBlockSize;
+
+
+	xBlockAllocatedBit = ( ( size_t ) 1 ) << ( ( sizeof( size_t ) * \
+	heapBITS_PER_BYTE ) - 1 );
+}
+/*-----------------------------------------------------------*/
+```
+
+#### 5.2 vTaskStartScheduler() 函数
+
+在创建完任务的时候，我们需要开启调度器，因为创建仅仅是把任务添加到系统中，还没真正调度，并且空闲任务也没实现，定时器任务也没实现，这些都是在开启调度函数 `vTaskStartScheduler()` 中实现的。
+
+**为什么要空闲任务？**
+
+因为 FreeRTOS 一旦启动，就必须要保证系统中每时每刻都有一个任务处于运行态（Runing），并且空闲任务不可以被挂起与删除，空闲任务的优先级是最低的，以便系统中其他任务能随时抢占空闲任务的 CPU 使用权。这些都是系统必要的东西，也无需用户自己实现，FreeRTOS 全部帮我们搞定了。处理完这些必要的东西之后，系统才真正开始启动。
+
+```c
+void vTaskStartScheduler( void )
+{
+	BaseType_t xReturn;
+
+	/*添加空闲任务*/
+#if( configSUPPORT_STATIC_ALLOCATION == 1 )
+	{
+		StaticTask_t *pxIdleTaskTCBBuffer = NULL;
+		StackType_t *pxIdleTaskStackBuffer = NULL;
+		uint32_t ulIdleTaskStackSize;
+
+		/*  空闲任务是使用用户提供的 RAM 创建的 - 获取
+			然后 RAM 的地址创建空闲任务。这是静态创建任务，我们不用管*/
+		vApplicationGetIdleTaskMemory( &pxIdleTaskTCBBuffer,
+									   &pxIdleTaskStackBuffer,
+									   &ulIdleTaskStackSize );
+        
+ 		xIdleTaskHandle = xTaskCreateStatic(prvIdleTask,
+											"IDLE",
+											ulIdleTaskStackSize,
+											( void * ) NULL,
+											( tskIDLE_PRIORITY | portPRIVILEGE_BIT ),
+											pxIdleTaskStackBuffer,
+											pxIdleTaskTCBBuffer );
+
+		if ( xIdleTaskHandle != NULL ) {
+			xReturn = pdPASS;
+		} 
+        else {
+			xReturn = pdFAIL;
+		}
+	}
+#else /* 这里才是动态创建 idle 任务 */
+	{
+		/* 使用动态分配的RAM 创建空闲任务。 */
+		xReturn = xTaskCreate( prvIdleTask, (1)
+							   "IDLE", configMINIMAL_STACK_SIZE,
+							   ( void * ) NULL,
+							   ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ),
+							   &xIdleTaskHandle );
+	}
+#endif
+    
+#if ( configUSE_TIMERS == 1 )
+	{
+		/* 如果使能了 configUSE_TIMERS 宏定义表明使用定时器，需要创建定时器任务*/
+		if ( xReturn == pdPASS ) {
+			xReturn = xTimerCreateTimerTask(); (2)
+		} 
+        else {
+			mtCOVERAGE_TEST_MARKER();
+		}
+	}
+#endif /* configUSE_TIMERS */
+
+	if ( xReturn == pdPASS ) {
+	/* 此处关闭中断，以确保不会发生中断 在调用xPortStartScheduler（）之前或期间。 堆栈的
+       创建的任务包含打开中断的状态因此，当第一个任务时，中断将自动重新启用开始运行。 */
+		portDISABLE_INTERRUPTS();
+
+#if ( configUSE_NEWLIB_REENTRANT == 1 )
+		{
+			/* 不需要理会，这个宏定义没打开 */
+			_impure_ptr = &( pxCurrentTCB->xNewLib_reent );
+		}
+#endif /* configUSE_NEWLIB_REENTRANT */
+
+		xNextTaskUnblockTime = portMAX_DELAY;
+		xSchedulerRunning = pdTRUE; (3)
+		xTickCount = ( TickType_t ) 0U;
+
+		/* 如果定义了configGENERATE_RUN_TIME_STATS，则以下内容必须定义宏以配置用
+	   	   于生成的计时器/计数器运行时计数器时基。目前没启用该宏定义 */
+		portCONFIGURE_TIMER_FOR_RUN_TIME_STATS();
+
+		/* 调用xPortStartScheduler 函数配置相关硬件如滴答定时器、FPU、pendsv 等 */
+		if ( xPortStartScheduler() != pdFALSE ) { (4)
+		/* 如果xPortStartScheduler 函数启动成功，则不会运行到这里 */
+		} 
+   	 else {
+			/* 不会运行到这里，除非调用 xTaskEndScheduler() 函数 */
+		}
+	} 
+    else {
+		/* 只有在内核无法启动时才会到达此行，因为没有足够的堆内存来创建空闲任务或计时器任务。
+	       此处使用了断言，会输出错误信息，方便错误定位 */
+		configASSERT( xReturn != errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY );
+	}
+
+	/* 如果INCLUDE_xTaskGetIdleTaskHandle 设置为0，则防止编译器警告，
+   	   这意味着在其他任何地方都不使用xIdleTaskHandle。暂时不用理会 */
+	( void ) xIdleTaskHandle;
+}
+```
+
+- (1)：动态创建空闲任务（IDLE），因为现在我们不使用静态创建，这个`configSUPPORT_STATIC_ALLOCATION` 宏定义为 0，只能是动态创建空闲任务，并且空闲任务的优先级与堆栈大小都在 `FreeRTOSConfig.h` 中由用户定义，空闲任务的任务句柄存放在静态变量 `xIdleTaskHandle` 中，用户可以调用 API 函数`xTaskGetIdleTaskHandle()` 获得空闲任务句柄。
+
+- (2)：如果在 `FreeRTOSConfig.h` 中使能了 `configUSE_TIMERS` 这个宏定义，那么需要创建一个定时器任务，这个定时器任务也是调用 `xTaskCreate()` 函数完成创建，过程十分简单，这也是系统的初始化内容，在调度器启动的过程中发现必要初始化的东西，FreeRTOS 就会帮我们完成，真的对开发者太友好了`xTimerCreateTimerTask()` 函数具体见下面代码：
+
+    ```c
+    BaseType_t xTimerCreateTimerTask( void )
+    {
+    	BaseType_t xReturn = pdFAIL;
+    
+    	/* 检查使用了哪些活动计时器的列表，以及用于与计时器服务通信的队列，已经初始化。*/
+    	prvCheckForValidListAndQueue();
+    
+    	if ( xTimerQueue != NULL ) {
+    #if( configSUPPORT_STATIC_ALLOCATION == 1 )
+    	{
+    		/* 这是静态创建的，无需理会 */
+    		StaticTask_t *pxTimerTaskTCBBuffer = NULL;
+    		StackType_t *pxTimerTaskStackBuffer = NULL;
+    		uint32_t ulTimerTaskStackSize;
+    
+    		vApplicationGetTimerTaskMemory(&pxTimerTaskTCBBuffer,
+    									   &pxTimerTaskStackBuffer,
+    									   &ulTimerTaskStackSize );
+    		xTimerTaskHandle = xTaskCreateStatic(prvTimerTask,
+    											 "Tmr Svc",
+    											 ulTimerTaskStackSize,
+    											 NULL,
+    					( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
+                                                 pxTimerTaskStackBuffer,
+                                                 pxTimerTaskTCBBuffer );
+    
+    		if ( xTimerTaskHandle != NULL )
+    		{
+    			xReturn = pdPASS;
+    		}
+    	}
+    #else
+    	{ 	/* 这是才是动态创建定时器任务 */
+    		xReturn = xTaskCreate(prvTimerTask,
+    							  "Tmr Svc",
+    							  configTIMER_TASK_STACK_DEPTH,
+    							  NULL,
+    		           ( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
+    							  &xTimerTaskHandle );
+    	}
+    #endif /* configSUPPORT_STATIC_ALLOCATION */
+    	} else {
+    		mtCOVERAGE_TEST_MARKER();
+    	}
+    
+    	configASSERT( xReturn );
+        
+        return xReturn;
+    }
+    ```
+
+- (3)：`xSchedulerRunning` 等于 `pdTRUE`，表示调度器开始运行了，而 `xTickCount` 初始化需要初始化为0，这个 `xTickCount` 变量用于记录系统的时间，在节拍定时器（SysTick）中断服务函数中进行自加。
+
+- (4)：调用函数 `xPortStartScheduler()` 来启动系统节拍定时器（一般都是使用SysTick）并启动第一个任务。因为设置系统节拍定时器涉及到硬件特性，因此函数 `xPortStartScheduler()` 由移植层提供（在 `port.c` 文件实现），不同的硬件架构，这个函数的代码也不相同，在 ARM_CM3 中，使用 SysTick 作为系统节拍定时器。有兴趣可以看看 `xPortStartScheduler()` 的源码内容，下面简单介绍一下相关知识：
+
+    在 Cortex-M4 架构中，FreeRTOS 为了任务启动和任务切换使用了三个异常：SVC、PendSV 和 SysTick：
+
+    - **SVC** （系统服务调用，亦简称系统调用）用于任务的创建和管理，通常在任务开始运行时调用。有些操作系统不允许应用程序直接访问硬件，而是通过提供一些系统服务函数，用户程序使用 SVC 发出对系统服务函数的呼叫请求，以这种方法调用它们来间接访问硬件，它就会产生一个 SVC 异常。
+    - **PendSV** （可挂起系统调用）用于进行上下文切换，确保任务在切换时的状态被正确保存和恢复，完成任务切换，它是可以像普通的中断一样被挂起的，它的最大特性是如果当前有优先级比它高的中断在运行，PendSV 会延迟执行，直到高优先级中断执行完毕，这样子产生的 PendSV 中断就不会打断其他中断的运行。
+    - **SysTick**  用于产生定时中断，以便调度器可以根据系统节拍来管理任务的时间片。产生系统节拍时钟，提供一个时间片，如果多个任务共享同一个优先级，则每次 SysTick 中断，下一个任务将获得一个时间片。
+
+    关于详细的 SVC、PendSV异常描述，推荐《Cortex-M4 权威指南》一书的 “异常” 部分。
+
+    这里将 PendSV 和 SysTick 异常优先级设置为最低，这样任务切换不会打断某个中断服务程序，中断服务程序也不会被延迟，这样简化了设计，有利于系统稳定。
+
+    **SysTick 的优先级配置为最低，那延迟的话系统时间会不会有偏差？**
+
+    答案是不会的，因为 SysTick 只是当次响应中断被延迟了，而 SysTick 是硬件定时器，它一直在计时，这一次的溢出产生中断与下一次的溢出产生中断的时间间隔是一样的，至于系统是否响应还是延迟响应，这个与 SysTick 无关，它照样在计时。
+
+#### 5.3 main 函数
+
+当我们拿到一个移植好FreeRTOS 的例程的时候，不出意外，首先看到的是 `main` 函数，当认真一看 `main` 函数里面只是创建并启动一些任务和硬件初始化。而系统初始化这些工作不需要我们实现，因为 FreeRTOS 在我们使用创建与开启调度的时候就已经偷偷帮我们做完了，如果只是使用 FreeRTOS 的话，无需关注 FreeRTOS API 函数里面的实现过程，但是我们还是建议需要深入了解 FreeRTOS 然后再去使用，避免出现问题。
+
+```c
+int main(void)
+{
+	BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
+
+	/* 开发板硬件初始化 */
+	BSP_Init(); (1)
+	printf("BSP Init Successfully!\r\n");
+    
+	/* 创建AppTaskCreate 任务 */ (2)
+	xReturn = xTaskCreate((TaskFunction_t )AppTaskCreate,/* 任务入口函数 */
+						  (const char* )"AppTaskCreate",/* 任务名字 */
+						  (uint16_t )512, /* 任务栈大小 */
+						  (void* )NULL,/* 任务入口函数参数 */
+						  (UBaseType_t )1, /* 任务的优先级 */
+						  (TaskHandle_t*)&AppTaskCreate_Handle);/*任务控制块指针*/
+	/* 启动任务调度 */
+	if (pdPASS == xReturn)
+		vTaskStartScheduler(); /* 启动任务，开启调度 */ (3)
+	else
+		return -1; (4)	
+    
+	while (1); /* 正常不会执行到这里 */
+}
+```
+
+1. 开发板硬件初始化，FreeRTOS 系统初始化是经在创建任务与开启调度器的时候完成的。
+2. 在 `AppTaskCreate` 中创建各种应用任务
+
+```c
+static void AppTaskCreate(void)
+{
+	BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
+
+	taskENTER_CRITICAL(); //进入临界区
+
+	/* 创建LED_Task 任务 */
+	xReturn = xTaskCreate((TaskFunction_t )LED1_Task, /* 任务入口函数 */
+						  (const char* )"LED1_Task",/* 任务名字 */
+						  (uint16_t )512, /* 任务栈大小 */
+						  (void* )NULL, /* 任务入口函数参数 */
+						  (UBaseType_t )2, /* 任务的优先级 */
+						  (TaskHandle_t* )&LED1_Task_Handle);/* 任务控制块指针 */
+	if (pdPASS == xReturn)
+		printf("创建LED1_Task 任务成功!\r\n");
+
+	/* 创建LED_Task 任务 */
+	xReturn = xTaskCreate((TaskFunction_t )LED2_Task, /* 任务入口函数 */
+						  (const char* )"LED2_Task",/* 任务名字 */
+                          (uint16_t )512, /* 任务栈大小 */
+						  (void* )NULL, /* 任务入口函数参数 */
+						  (UBaseType_t )3, /* 任务的优先级 */
+						  (TaskHandle_t* )&LED2_Task_Handle);/* 任务控制块指针 */
+	if (pdPASS == xReturn)
+		printf("创建LED2_Task 任务成功!\r\n");
+
+	vTaskDelete(AppTaskCreate_Handle); //删除AppTaskCreate 任务
+	
+	taskEXIT_CRITICAL(); //退出临界区
+}
+```
+
+- **当创建的应用任务的优先级比 `AppTaskCreate` 任务的优先级高、低或者相等时候，程序是如何执行的？**
+
+    假如像我们代码一样在临界区创建任务，任务只能在退出临界区的时候才执行最高优先级任务。假如没使用临界区的话，就会分三种情况：
+
+    1. 应用任务的优先级比初始任务的优先级高，那创建完后立马去执行刚刚创建的应用任务，当应用任务被阻塞时，继续回到初始任务被打断的地方继续往下执行，直到所有应用任务创建完成，最后初始任务把自己删除，完成自己的使命。
+
+    2. 应用任务的优先级与初始任务的优先级一样，那创建完后根据任务的时间片来执行，直到所有应用任务创建完成，最后初始任务把自己删除，完成自己的使命。
+
+    3. 应用任务的优先级比初始任务的优先级低，那创建完后任务不会被执行，如果还有应用任务紧接着创建应用任务，如果应用任务的优先级出现了比初始任务高或者相等的情况，参考 1 和 2 的处理方式，直到所有应用任务创建完成，最后初始任务把自己删除，完成自己的使命。
+
+- 在启动任务调度器的时候，假如启动成功的话，任务就不会有返回了，假如启动没成功，则通过 LR 寄存器指定的地址退出，在创建 `AppTaskCreate` 任务的时候，任务栈对应 LR 寄存器指向是任务退出函数`prvTaskExitError()`，该函数里面是一个死循环，这代表着假如创建任务没成功的话，就会进入死循环，该任务也不会运行。
+
+## 四. 任务管理
+
+### 1. 任务的基本概念
+
+从系统的角度看，任务是竞争系统资源的最小运行单元。FreeRTOS 是一个支持多任务的操作系统。在 FreeRTOS 中，任务可以使用或等待 CPU、使用内存空间等系统资源，并独立于其它任务运行， 任何数量的任务可以共享同一个优先级， 如果宏 `configUSE_TIME_SLICING` 定义为1，处于就绪态的多个相同优先级任务将会以时间片切换的方式共享处理器。
+
+简而言之： FreeRTOS 的任务可认为是一系列独立任务的集合。每个任务在自己的环境中运行。在任何时刻，只有一个任务得到运行，FreeRTOS 调度器决定运行哪个任务。调度器会不断的启动、停止每一个任务，宏观看上去所有的任务都在同时在执行。作为任务，不需要对调度器的活动有所了解，在任务切入切出时保存上下文环境（寄存器值、堆栈内容）是调度器主要的职责。为了实现这点，每个 FreeRTOS 任务都需要有自己的栈空间。当任务切出时，它的执行环境会被保存在该任务的栈空间中，这样当任务再次运行时，就能从堆栈中正确的恢复上次的运行环境，任务越多，需要的堆栈空间就越大，而**一个系统能运行多少个任务，取决于系统的可用的 SRAM。**
+
+FreeRTOS 可以给用户提供多个任务单独享有独立的堆栈空间，系统可以决定任务的状态，决定任务是否可以运行，同时还能运用内核的 IPC 通信资源，实现了任务之间的通信，帮助用户管理业务程序流程。这样用户可以将更多的精力投入到业务功能的实现中。
+
+FreeRTOS 中的任务是抢占式调度机制，高优先级的任务可打断低优先级任务，低优先级任务必须在高优先级任务阻塞或结束后才能得到调度。同时 FreeRTOS 也支持时间片轮转调度方式，只不过时间片的调度是不允许抢占任务的 CPU 使用权。
+
+任务通常会运行在一个死循环中，也不会退出，如果一个任务不再需要，可以调用 FreeRTOS 中的任务删除 API 函数接口显式地将其删除。
+
+### 2. 任务调度器的基本概念
+
+FreeRTOS 中提供的任务调度器是基于优先级的全抢占式调度：在系统中除了中断处理函数、调度器上锁部分的代码和禁止中断的代码是不可抢占的之外，系统的其他部分都是可以抢占的。系统理论上可以支持无数个优先级(0 ～ N，**优先级数值越小的任务优先级越低，0 为最低优先级，分配给空闲任务使用，一般不建议用户来使用这个优先级。** 假如使能了 `configUSE_PORT_OPTIMISED_TASK_SELECTION`  这个宏（在 `FreeRTOSConfig.h` 文件定义），一般强制限定最大可用优先级数目为 32。在一些资源比较紧张的系统中，可以根据实际情况选择只支持 8 个或 32 个优先级的系统配置。在系统中，当有比当前任务优先级更高的任务就绪时，当前任务将立刻被换出，高优先级任务抢占处理器运行。
+
+一个操作系统如果只是具备了高优先级任务能够 “ 立即 ” 获得处理器并得到执行的特点，那么它仍然不算是实时操作系统。因为这个查找最高优先级任务的过程决定了调度时间是否具有确定性，例如一个包含 n 个就绪任务的系统中，如果仅仅从头找到尾，那么这个时间将直接和 n 相关，而下一个就绪任务抉择时间的长短将会极大的影响系统的实时性。
+
+FreeRTOS 内核中采用两种方法寻找最高优先级的任务：
+
+- 第一种是通用的方法，在就绪链表中查找从高优先级往低查找 `uxTopPriority`，因为在创建任务的时候已经将优先级进行排序，查找到的第一个 `uxTopPriority` 就是我们需要的任务，然后通过 `uxTopPriority` 获取对应的任务控制块。
+- 第二种方法则是特殊方法，利用计算前导零指令 CLZ，直接在 `uxTopReadyPriority` 这个 32 位的变量中直接得出 `uxTopPriority`，这样子就知道哪一个优先级任务能够运行，这种调度算法比普通方法更快捷，但受限于平台（在STM32 中我们就使用这种方法）。
+
+FreeRTOS 内核中也允许创建相同优先级的任务。**相同优先级的任务采用时间片轮转方式进行调度（也就是通常说的分时调度器），时间片轮转调度仅在当前系统中无更高优先级就绪任务存在的情况下才有效。**为了保证系统的实时性，系统尽最大可能地保证高优先级的任务得以运行。**任务调度的原则是一旦任务状态发生了改变，并且当前运行的任务优先级小于优先级队列组中任务最高优先级时，立刻进行任务切换（除非当前系统处于中断处理程序中或禁止任务切换的状态）。**
+
+### 3. 任务状态迁移
+
+FreeRTOS 系统中的每一个任务都有多种运行状态：
+
+![image-20241102155422015](.assets/image-20241102155422015.png)
+
+- 创建任务→就绪态（Ready）：任务创建完成后进入就绪态，表明任务已准备就绪，随时可以运行，只等待调度器进行调度。
+- 就绪态→运行态（Running）：发生任务切换时，就绪列表中最高优先级的任务被执行，从而进入运行态。
+- 运行态→就绪态：有更高优先级任务创建或者恢复后，会发生任务调度，此刻就绪列表中最高优先级任务变为运行态，那么原先运行的任务由运行态变为就绪态，依然在就绪列表中，等待最高优先级的任务运行完毕继续运行原来的任务（此处可以看做是CPU 使用权被更高优先级的任务抢占了）。
+- 运行态→阻塞态（Blocked）：正在运行的任务发生阻塞（挂起、延时、读信号量等待）时，该任务会从就绪列表中删除，任务状态由运行态变成阻塞态，然后发生任务切换，运行就绪列表中当前最高优先级任务。
+- 阻塞态→就绪态：阻塞的任务被恢复后（任务恢复、延时时间超时、读信号量超时或读到信号量等），此时被恢复的任务会被加入就绪列表，从而由阻塞态变成就绪态；如果此时被恢复任务的优先级高于正在运行任务的优先级，则会发生任务切换，将该任务将再次转换任务状态，由就绪态变成运行态。
+- 就绪态、阻塞态、运行态→挂起态（Suspended）：任务可以通过调用 `vTaskSuspend()` API 函数都可以将处于任何状态的任务挂起，被挂起的任务得不到 CPU 的使用权，也不会参与调度，除非它从挂起态中解除。
+- 挂起态→就绪态：把一个挂起状态的任务恢复的唯一途径就是调用 `vTaskResume()` 或`vTaskResumeFromISR()` API 函数，如果此时被恢复任务的优先级高于正在运行任务的优先级，则会发生任务切换，将该任务将再次转换任务状态，由就绪态变成运行态。
+
+### 4. 任务状态的概念
+
+FreeRTOS 系统中的每一任务都有多种运行状态。系统初始化完成后，创建的任务就可以在系统中竞争一定的资源，由内核进行调度。
+
+任务状态通常分为以下四种：
+
+- 就绪（Ready）：该任务在就绪列表中，就绪的任务已经具备执行的能力，只等待调度器进行调度，新创建的任务会初始化为就绪态。
+- 运行（Running）：该状态表明任务正在执行，此时它占用处理器，FreeRTOS 调度器选择运行的永远是处于最高优先级的就绪态任务，当任务被运行的一刻，它的任务状态就变成了运行态。
+- 阻塞（Blocked）：如果任务当前正在等待某个时序或外部中断，我们就说这个任务处于阻塞状态，该任务不在就绪列表中。包含任务被挂起、任务被延时、任务正在等待信号量、读写队列或者等待读写事件等。
+- 挂起态(Suspended)：处于挂起态的任务对调度器而言是不可见的，**让一个任务进入挂起状态的唯一办法就是调用 `vTaskSuspend()` 函数**；而把一个挂起状的任务恢复的唯一途径就是调用 `vTaskResume()` 或`vTaskResumeFromISR()` 函数，我们可以这么理解挂起态与阻塞态的区别，当任务有较长的时间不允许运行
+    的时候，我们可以挂起任务，这样子调度器就不会管这个任务的任何信息，直到我们调用恢复任务的 API 函数；而任务处于阻塞态的时候，系统还需要判断阻塞态的任务是否超时，是否可以解除阻塞。
+
+### 5. 常见任务函数
+
+下面补充一些 FreeRTOS 提供给我们对任务操作的一些常用函数。
+
+#### 5.1 vTaskSuspend()
+
+挂起指定任务。被挂起的任务绝不会得到 CPU的使用权，不管该任务具有什么优先级。
+
+任务可以通过调用 `vTaskSuspend()` 函数都可以将处于任何状态的任务挂起，被挂起的任务得不到 CPU 的使用权，也不会参与调度，它相对于调度器而言是不可见的，除非它从挂起态中解除。任务挂起是我们经常使用的一个函数，代码如下：
+
+```c
+#if ( INCLUDE_vTaskSuspend == 1 )
+
+	void vTaskSuspend( TaskHandle_t xTaskToSuspend )
+	{
+	TCB_t *pxTCB;
+
+		taskENTER_CRITICAL();
+		{
+			/* If null is passed in here then it is the running task that is
+			being suspended. */
+			pxTCB = prvGetTCBFromHandle( xTaskToSuspend );
+
+			traceTASK_SUSPEND( pxTCB );
+
+			/* Remove task from the ready/delayed list and place in the
+			suspended list. */
+			if( uxListRemove( &( pxTCB->xStateListItem ) ) == ( UBaseType_t ) 0 )
+			{
+				taskRESET_READY_PRIORITY( pxTCB->uxPriority );
+			}
+			else
+			{
+				mtCOVERAGE_TEST_MARKER();
+			}
+
+			/* Is the task waiting on an event also? */
+			if( listLIST_ITEM_CONTAINER( &( pxTCB->xEventListItem ) ) != NULL )
+			{
+				( void ) uxListRemove( &( pxTCB->xEventListItem ) );
+			}
+			else
+			{
+				mtCOVERAGE_TEST_MARKER();
+			}
+
+			vListInsertEnd( &xSuspendedTaskList, &( pxTCB->xStateListItem ) );
+		}
+		taskEXIT_CRITICAL();
+
+		if( xSchedulerRunning != pdFALSE )
+		{
+			/* Reset the next expected unblock time in case it referred to the
+			task that is now in the Suspended state. */
+			taskENTER_CRITICAL();
+			{
+				prvResetNextTaskUnblockTime();
+			}
+			taskEXIT_CRITICAL();
+		}
+		else
+		{
+			mtCOVERAGE_TEST_MARKER();
+		}
+
+		if( pxTCB == pxCurrentTCB )
+		{
+			if( xSchedulerRunning != pdFALSE )
+			{
+				/* The current task has just been suspended. */
+				configASSERT( uxSchedulerSuspended == 0 );
+				portYIELD_WITHIN_API();
+			}
+			else
+			{
+				/* The scheduler is not running, but the task that was pointed
+				to by pxCurrentTCB has just been suspended and pxCurrentTCB
+				must be adjusted to point to a different task. */
+				if( listCURRENT_LIST_LENGTH( &xSuspendedTaskList ) ==
+                                              uxCurrentNumberOfTasks )
+				{
+					/* No other tasks are ready, so set pxCurrentTCB back to
+					NULL so when the next task is created pxCurrentTCB will
+					be set to point to it no matter what its relative priority
+					is. */
+					pxCurrentTCB = NULL;
+				}
+				else
+				{
+					vTaskSwitchContext();
+				}
+			}
+		}
+		else
+		{
+			mtCOVERAGE_TEST_MARKER();
+		}
+	}
+
+#endif /* INCLUDE_vTaskSuspend */
+```
 
 
 
+
+
+## OTHER
+
+#### STM32 + FreeRTOS + Cpp 混合编程
+
+>  参考：[stm32 + freertos + c++混合编程方法](https://blog.csdn.net/yuhu0012/article/details/136510811)
+
+
+
+#### 通过预定义宏根据编译器和其版本来编写条件编译的代码
+
+在 C/C++ 中，可以使用预定义宏（如 `__xx__`）来识别当前使用的编译器及其版本。每个编译器通常都有一组特定的预定义宏，以下是一些常见编译器及其相应的预定义宏示例：
+
+1. **GCC (GNU Compiler Collection)**：
+
+    - `__GNUC__`：主版本号
+
+    - `__GNUC_MINOR__`：次版本号
+
+    - `__GNUC_PATCHLEVEL__`：修订号
+
+    - 示例：
+
+        ```c
+        #if defined(__GNUC__)
+        #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+        #endif
+        ```
+
+2. **MSVC (Microsoft Visual C++)**：
+
+    - `_MSC_VER`：表示版本号，例如：1920表示 Visual Studio 2019。
+
+    - 示例：
+
+        ```c
+        #ifdef _MSC_VER
+        #if _MSC_VER >= 1920 // Visual Studio 2019
+        // 代码
+        #endif
+        #endif
+        ```
+
+3. **Clang**：
+
+    - `__clang__`：定义为 Clang 编译器存在时。
+
+    - `__clang_major__`、`__clang_minor__`、`__clang_patchlevel__`：版本信息。
+
+    - 示例：
+
+        ```c
+        #ifdef __clang__
+        #define CLANG_VERSION (__clang_major__ * 10000 + __clang_minor__ * 100 + __clang_patchlevel__)
+        #endif
+        ```
+
+4. **Keil**：
+
+    - `__ARMCC_VERSION`：Keil ARM 编译器的版本信息。
+
+    - 示例：
+
+        ```c
+        #ifdef __ARMCC_VERSION
+        // 代码
+        #endif
+        ```
+
+使用这些宏，可以根据编译器的版本执行不同的代码。示例如下：
+
+```c
+#if defined(__GNUC__)
+    // GCC-specific code
+#elif defined(_MSC_VER)
+    // MSVC-specific code
+#elif defined(__clang__)
+    // Clang-specific code
+#elif defined(__ARMCC_VERSION)
+    // Keil-specific code
+#else
+    #error "Unsupported compiler"
+#endif
+```
+
+通过这种方式，你可以根据编译器和其版本来编写条件编译的代码，从而确保代码在不同编译环境下的兼容性。
 
 
 
 ## ERROR LOG
 
-### 单独一个静态任务运行卡死
+#### 单独一个静态任务运行卡死
 
 - [x] 2024/11/1 17:50
 
@@ -1849,3 +3262,50 @@ void assert_failed(uint8_t *file, uint32_t line)
 -  **任务切换的触发条件**
 
     由于 FreeRTOS 的任务调度依赖于任务切换指令或延时函数（如 `vTaskDelay` 或 `vTaskDelayUntil`），较低优先级的任务在等待调度时可能无法及时切换。如果 `AppTaskCreate` 和 `LED_Task` 的优先级低于空闲任务，它们的执行可能会受到影响。确保 `AppTaskCreate` 和 `LED_Task` 优先级足够高，可以在 `vTaskStartScheduler` 后立即调度。
+    
+    
+
+#### Keil AC5 编译器对于宏函数的嵌套语句块语法报错
+
+- [x] 2024/11/02 12:18
+
+**原定义：**
+
+```c
+#define __BSP_LED1_Ficker(__TIME__) ({	__BSP_LED1_Toggle(); 		\
+										vTaskDelay(__TIME__); 	    \
+										__BSP_LED1_Toggle(); 		\
+										vTaskDelay(__TIME__); })
+```
+
+**报错：**
+
+```bash
+Error:  #29: expected an expression
+```
+
+**原因：**
+
+定义的宏函数使用了 GCC 的语法（即 “ 嵌套语句块 ” ），这在某些编译器中可能会引起问题。Keil AC5 可能不支持这种语法，因此出现了“expected an expression”的错误。
+
+**解决方法：**
+
+将宏函数的定义更改为 `do {...} while(0)` 的结构，如：
+
+```c
+#define __BSP_LED1_Ficker(__TIME__) do {	\
+	__BSP_LED1_Toggle(); 		            \
+	vTaskDelay(__TIME__); 	                \
+	__BSP_LED1_Toggle(); 		            \
+	vTaskDelay(__TIME__);                   \
+	} while(0)
+```
+
+使用 `do { ... } while(0)` 结构作为宏定义的方式，有几个优点和原因：
+
+1. **兼容性**：这种结构在不同的编译器中通常更兼容。某些编译器可能对带有嵌套语句块的宏处理不当，而 `do { ... } while(0)` 结构是标准的 C 语法。
+2. **单个语句效果**：使用 `do { ... } while(0)` 可以将整个宏定义视为一个单一的语句。在使用宏的地方，即使宏内部有多条语句，调用时也不会引起语法错误。这可以防止在使用宏时出现意外的分号或其他语法问题。
+3. **代码可读性**：将整个宏包裹在 `do { ... } while(0)` 中，可以提高代码的可读性和维护性。其他程序员在查看代码时，更容易理解这是一个完整的操作。
+4. **避免副作用**：如果在宏中使用了表达式，`do { ... } while(0)` 可以有效地限制其作用域，避免在多次调用时可能导致的副作用。
+
+因此，推荐在定义宏时使用这种结构，特别是在涉及多条语句的情况下。这可以提高代码的可靠性和可移植性。
