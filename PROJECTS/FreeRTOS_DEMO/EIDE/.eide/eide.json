@@ -182,6 +182,9 @@
           },
           {
             "path": "../libstm/Src/bsp_usart.c"
+          },
+          {
+            "path": "../libstm/Src/bsp_key.c"
           }
         ],
         "folders": []

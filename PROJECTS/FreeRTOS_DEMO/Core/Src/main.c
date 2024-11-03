@@ -70,6 +70,8 @@ static void LED2_Task(void *argument)
     while (1)
     {
         __BSP_LED2_Ficker(200);
+        BSP_KEY_StateTransition();
+        printf("KEY0: %d\r\n", key[0].key_state);
     }
 }
 
@@ -137,6 +139,8 @@ int main(void)
   BaseType_t xReturn = pdPASS;
 
   BSP_LED_Init();
+  BSP_KEY_Init();
+
   printf("FreeRTOS Demo Application.\r\n");
 
   xReturn = xTaskCreate(AppTaskCreate,
@@ -158,6 +162,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
