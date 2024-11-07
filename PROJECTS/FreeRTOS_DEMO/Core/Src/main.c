@@ -33,7 +33,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define QUEUE_LEN  4
+#define QUEUE_SIZE 4
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,7 +47,9 @@
 /* USER CODE BEGIN PV */
 static TaskHandle_t APPCreate_Handle = NULL;
 static TaskHandle_t LED1_Task_Handle = NULL;
-static TaskHandle_t LED2_Task_Handle = NULL;
+static TaskHandle_t Key0_Task_Handle = NULL;
+
+QueueHandle_t Test_Queue = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,47 +62,78 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 static void LED1_Task(void* argument)
 {
-    while(1)
+	BaseType_t xReturn = pdTRUE;
+	uint32_t r_queue;
+
+	while(1)
     {
-        __BSP_LED1_Ficker(500);
+		xReturn = xQueueReceive(Test_Queue, &r_queue, portMAX_DELAY);
+		if (pdTRUE == xReturn) {
+			printf("LED1 Task received data: %d.\r\n", r_queue);
+			__BSP_LED1_Ficker(100);
+		}
+		else {
+			printf("LED1 Task receive data failed. %d\r\n", xReturn);
+		}
+		vTaskDelay(20);
     }
 }
 
-static void LED2_Task(void *argument)
+static void Key0_Task(void *argument)
 {
-    while (1)
+	BaseType_t xReturn = pdTRUE;
+	uint32_t send_data1 = 1;
+	uint32_t send_data2 = 2;
+
+	while (1)
     {
-        __BSP_LED2_Ficker(200);
-        BSP_KEY_StateTransition();
-        printf("KEY0: %d\r\n", key[0].key_state);
+        if (BSP_KEY_Read(0) ==  GPIO_PIN_RESET)
+        {
+            printf("Send data: %d.\r\n", send_data1);
+			xReturn = xQueueSend(Test_Queue, &send_data1, portMAX_DELAY);
+        }
+		else if (BSP_KEY_Read(1) ==  GPIO_PIN_RESET)
+        {
+            printf("Send data: %d.\r\n", send_data2);
+			xReturn = xQueueSend(Test_Queue, &send_data2, portMAX_DELAY);
+        }
+        vTaskDelay(1000);
     }
 }
 
 static void AppTaskCreate(void)
 {
-    BaseType_t xReturn1 = pdPASS;
-    BaseType_t xReturn2 = pdPASS;
+    BaseType_t xReturn = pdPASS;
 
     taskENTER_CRITICAL();
 
-    xReturn1 = xTaskCreate(LED1_Task,
+	Test_Queue = xQueueCreate((UBaseType_t)QUEUE_LEN,
+							  (UBaseType_t)QUEUE_SIZE);
+
+	if (NULL != Test_Queue)
+		printf("Test Queue created successfully.\r\n");
+
+	xReturn = xTaskCreate(LED1_Task,
                           "LED1_Task",
-                          512,      
+                          256,      
                           NULL,
-                          2,
+                          4,
                           &LED1_Task_Handle);
 
-    xReturn2 = xTaskCreate(LED2_Task,
-                          "LED2_Task",
-                          512,
+    if (pdPASS == xReturn)
+		printf("LED1 Task created successfully.\r\n");
+
+	xReturn = xTaskCreate(Key0_Task,
+                          "Key0_Task",
+                          256,
                           NULL,
                           3,
-                          &LED2_Task_Handle);
+                          &Key0_Task_Handle);
+	
+	if (pdPASS == xReturn)
+		printf("Key0 Task created successfully.\r\n\n");
 
-    if (pdPASS == xReturn1 && pdPASS == xReturn2)
-        printf("LED_Task created successfully.\r\n");
-
-    vTaskDelete(APPCreate_Handle);
+    vTaskDelete(NULL);
 
     taskEXIT_CRITICAL();
 }

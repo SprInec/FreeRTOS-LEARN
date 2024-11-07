@@ -4098,6 +4098,1432 @@ FreeRTOS 中程序运行的上下文包括：
 
 ### 7. 任务管理实验
 
+```c
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t LED1_Task_Handle = NULL;
+static TaskHandle_t LED2_Task_Handle = NULL;
+static TaskHandle_t Key0_Task_Handle = NULL;
+static TaskHandle_t Key1_Task_Handle = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void LED1_Task(void* argument)
+{
+    while(1)
+    {
+        __BSP_LED1_Ficker(500);
+    }
+}
+
+static void LED2_Task(void *argument)
+{
+    while (1)
+    {
+        __BSP_LED2_Ficker(200);
+    }
+}
+
+static void Key0_Task(void *argument)
+{
+    while (1)
+    {
+        if (BSP_KEY_Read(0) ==  GPIO_PIN_RESET)
+        {
+            printf("LED1 Task Suspend.\r\n");
+            vTaskSuspend(LED1_Task_Handle);
+        }
+        vTaskDelay(100);
+    }
+}
+
+static void Key1_Task(void *argument)
+{
+    while (1)
+    {
+        if (BSP_KEY_Read(1) == GPIO_PIN_RESET)
+        {
+            printf("LED1 Task Resume.\r\n");
+            vTaskResume(LED1_Task_Handle);
+        }
+        vTaskDelay(100);
+    }
+}
+
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn1 = pdPASS;
+    BaseType_t xReturn2 = pdPASS;
+    BaseType_t xReturn3 = pdPASS;
+    BaseType_t xReturn4 = pdPASS;
+
+    taskENTER_CRITICAL();
+
+    xReturn1 = xTaskCreate(LED1_Task,
+                          "LED1_Task",
+                          256,      
+                          NULL,
+                          2,
+                          &LED1_Task_Handle);
+
+    xReturn2 = xTaskCreate(LED2_Task,
+                          "LED2_Task",
+                          256,
+                          NULL,
+                          3,
+                          &LED2_Task_Handle);
+
+    xReturn3 = xTaskCreate(Key0_Task,
+                          "Key0_Task",
+                          256,
+                          NULL,
+                          5,
+                          &Key0_Task_Handle);
+
+    xReturn4 = xTaskCreate(Key1_Task,
+                          "Key1_Task",
+                          256,
+                          NULL,
+                          5,
+                          &Key1_Task_Handle);
+
+    if (pdPASS == xReturn1 && pdPASS == xReturn2 &&
+        pdPASS == xReturn3 && pdPASS == xReturn4)
+        printf("LED_Task created successfully.\r\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  /* USER CODE BEGIN 2 */
+
+  BaseType_t xReturn = pdPASS;
+
+  BSP_LED_Init();
+  BSP_KEY_Init();
+
+  printf("FreeRTOS Demo Application.\r\n");
+
+  xReturn = xTaskCreate(AppTaskCreate,
+                        "AppTaskCreate",
+                        512,
+                        NULL,
+                        1,
+                        &APPCreate_Handle);
+  if (pdPASS == xReturn)
+  {
+      printf("AppTaskCreate created successfully.\r\n");
+      vTaskStartScheduler();
+  }
+  else
+      return -1;
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 72;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM2 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM2) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+
+```
+
+## 五. 消息队列
+
+### 5.1 消息队列的基本概念
+
+队列又称消息队列，是一种常用于任务间通信的数据结构，队列可以在任务与任务间、中断和任务间传递信息，实现了任务接收来自其他任务或中断的不固定长度的消息，任务能够从队列里面读取消息，当队列中的消息是空时，读取消息的任务将被阻塞，用户还可以指定阻塞的任务时间 `xTicksToWait`，在这段时间中，如果队列为空，该任务将保持阻塞状态以等待队列数据有效。当队列中有新消息时，被阻塞的任务会被唤醒并处理新消息；当等待的时间超过了指定的阻塞时间，即使队列中尚无有效数据，任务也会自动从阻塞态转为就绪态。消息队列是一种异步的通信方式。
+
+通过消息队列服务，任务或中断服务例程可以将一条或多条消息放入消息队列中。同样，一个或多个任务可以从消息队列中获得消息。当有多个消息发送到消息队列时，通常是将先进入消息队列的消息先传给任务，也就是说，任务先得到的是最先进入消息队列的消息，即先进先出原则（FIFO），但是也支持后进先出原则（LIFO）。
+
+FreeRTOS 中使用队列数据结构实现任务异步通信工作，具有如下特性：
+
+- 消息支持先进先出方式排队，支持异步读写工作方式。
+- 读写队列均支持超时机制。
+- 消息支持后进先出方式排队，往队首发送消息（LIFO）。
+- 可以允许不同长度（不超过队列节点最大值）的任意类型消息。
+- 一个任务能够从任意一个消息队列接收和发送消息。
+- 多个任务能够从同一个消息队列接收和发送消息。
+- 当队列使用结束后，可以通过删除队列函数进行删除。
+
+### 5.2 消息队列的运作机制
+
+创建消息队列时 FreeRTOS 会先给消息队列分配一块内存空间，这块内存的大小等于消息队列控制块大小加上（单个消息空间大小与消息队列长度的乘积），接着再初始化消息队列，此时消息队列为空。FreeRTOS 的消息队列控制块由多个元素组成，当消息队列被创建时，系统会为控制块分配对应的内存空间，用于保存消息队列的一些信息如消息的存储位置，头指针 `pcHead`、尾指针 `pcTail`、消息大小 `uxItemSize` 以及队列长度 `uxLength` 等。同时每个消息队列都与消息空间在同一段连续的内存空间中，在创建成功的时候，这些内存就被占用了，只有删除了消息队列的时候，这段内存才会被释放掉，创建成功的时候就已经分配好每个消息空间与消息队列的容量，无法更改，每个消息空间可以存放不大于消息大小 `uxItemSize` 的任意类型的数据，所有消息队列中的消息空间总数即是消息队列的长度，这个长度可在消息队列创建时指定。
+
+任务或者中断服务程序都可以给消息队列发送消息，当发送消息时，如果队列未满或者允许覆盖入队，FreeRTOS 会将消息拷贝到消息队列队尾，否则，会根据用户指定的阻塞超时时间进行阻塞，在这段时间中，如果队列一直不允许入队，该任务将保持阻塞状态以等待队列允许入队。当其它任务从其等待的队列中读取入了数据（队列未满），该任务将自动由阻塞态转移为就绪态。当等待的时间超过了指定的阻塞时间，即使队列中还不允许入队，任务也会自动从阻塞态转移为就绪态，此时发送消息的任务或者中断程序会收到一个错误码 `errQUEUE_FULL`。
+
+发送紧急消息的过程与发送消息几乎一样，唯一的不同是，当发送紧急消息时，发送的位置是消息队列队头而非队尾，这样，接收者就能够优先接收到紧急消息，从而及时进行消息处理。
+
+当某个任务试图读一个队列时，其可以指定一个阻塞超时时间。在这段时间中，如果队列为空，该任务将保持阻塞状态以等待队列数据有效。当其它任务或中断服务程序往其等待的队列中写入了数据，该任务将自动由阻塞态转移为就绪态。当等待的时间超过了指定的阻塞时间，即使队列中尚无有效数据，任务也会自动从阻塞态转移为就绪态。
+
+当消息队列不再被使用时，应该删除它以释放系统资源，一旦操作完成，消息队列将被永久性的删除。
+
+消息队列的运作过程具体见下图：
+
+![image-20241107155049097](.assets/image-20241107155049097.png)
+
+### 5.3 消息队列的阻塞机制
+
+很简单，因为 FreeRTOS 已经为我们做好了，我们直接使用就好了，每个对消息队列读写的函数，都有这种机制，我称之为阻塞机制。假设有一个任务 A 对某个队列进行读操作的时候（也就是我们所说的出队），发现它没有消息，那么此时任务A 有 3 个选择：
+
+- 第一个选择，任务 A 扭头就走，既然队列没有消息，那我也不等了，干其它事情去，这样子任务 A不会进入阻塞态；
+- 第二个选择，任务A还是在这里等等吧，可能过一会队列就有消息，此时任务 A会进入阻塞状态，在等待着消息的道来，而任务 A 的等待时间就由我们自己定义，比如设置 1000 个系统时钟节拍 tick 的等待，在这 1000 个tick 到来之前任务 A 都是处于阻塞态，当阻塞的这段时间任务A等到了队列的消息，那么任务A就会从阻塞态变成就绪态，如果此时任务 A 比当前运行的任务优先级还高，那么，任务 A 就会得到消息并且运行；假如 1000 个tick 都过去了，队列还没消息，那任务 A 就不等了，从阻塞态中唤醒，返回一个没等到消息的错误代码，然后继续执行任务 A 的其他代码；
+- 第三个选择，任务 A 死等，不等到消息就不走了，这样子任务 A 就会进入阻塞态，直到完成读取队列的消息。
+
+而在发送消息操作的时候，为了保护数据，当且仅当队列允许入队的时候，发送者才能成功发送消息；队列中无可用消息空间时，说明消息队列已满，此时，系统会根据用户指定的阻塞超时时间将任务阻塞，在指定的超时时间内如果还不能完成入队操作，发送消息的任务或者中断服务程序会收到一个错误码errQUEUE_FULL，然后解除阻塞状态；当然，只有在任务中发送消息才允许进行阻塞状态，而在中断中发送消息不允许带有阻塞机制的，需要调用在中断中发送消息的API 函数接口，因为发送消息的上下文环境是在中断中，不允许有阻塞的情况。
+
+假如有多个任务阻塞在一个消息队列中，那么这些阻塞的任务将按照任务优先级进行排序，优先级高的任务将优先获得队列的访问权。
+
+### 5.4 消息队列的应用场景
+
+消息队列可以应用于发送不定长消息的场合，包括任务与任务间的消息交换，队列是 FreeRTOS 主要的任务间通讯方式，可以在任务与任务间、中断和任务间传送信息，发送到队列的消息是通过拷贝方式实现的，这意味着队列存储的数据是原数据，而不是原数据的引用。
+
+### 5.5 消息队列控制块
+
+FreeRTOS 的消息队列控制块由多个元素组成，当消息队列被创建时，系统会为控制块分配对应的内存空间，用于保存消息队列的一些信息如消息的存储位置，头指针 `pcHead`、尾指针 `pcTail`、消息大小 `uxItemSize` 以及队列长度 `uxLength`，以及当前队列消息个数 `uxMessagesWaiting` 等。
+
+```c
+typedef struct QueueDefinition {
+	int8_t *pcHead; (1)
+	int8_t *pcTail; (2)
+	int8_t *pcWriteTo; (3)
+        
+	union {
+		int8_t *pcReadFrom; (4)
+		UBaseType_t uxRecursiveCallCount; (5)
+	} u;
+
+	List_t xTasksWaitingToSend; (6)
+	List_t xTasksWaitingToReceive; (7)
+
+	volatile UBaseType_t uxMessagesWaiting; (8)
+	UBaseType_t uxLength; (9)
+	UBaseType_t uxItemSize; (10)
+
+    volatile int8_t cRxLock; (11)
+	volatile int8_t cTxLock; (12)
+
+#if( ( configSUPPORT_STATIC_ALLOCATION == 1 )&&( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
+	uint8_t ucStaticallyAllocated;
+#endif
+
+#if ( configUSE_QUEUE_SETS == 1 )
+	struct QueueDefinition *pxQueueSetContainer;
+#endif
+
+#if ( configUSE_TRACE_FACILITY == 1 )
+	UBaseType_t uxQueueNumber;
+	uint8_t ucQueueType;
+#endif
+
+} xQUEUE;
+
+typedef xQUEUE Queue_t;
+```
+
+1. `pcHead` 指向队列消息存储区起始位置，即第一个消息空间。
+
+2. `pcTail` 指向队列消息存储区结束位置地址。
+
+3. `pcWriteTo` 指向队列消息存储区下一个可用消息空间。
+
+4. `pcReadFrom` 与 `uxRecursiveCallCount` 是一对互斥变量，使用联合体用来确保两个互斥的结构体成员不会同时出现。当结构体用于队列时，`pcReadFrom` 指向出队消息空间的最后一个，见文知义，就是读取消息时候是从 `pcReadFrom` 指向的空间读取消息内容。
+
+5. 当结构体用于互斥量时，`uxRecursiveCallCount` 用于计数，记录递归互斥量被“调用”的次数。
+
+6. `xTasksWaitingToSend` 是一个发送消息阻塞列表，用于保存阻塞在此队列的任务，任务按照优先级进行排序，由于队列已满，想要发送消息的任务无法发送消息。
+
+7. `xTasksWaitingToReceive` 是一个获取消息阻塞列表，用于保存阻塞在此队列的任务，任务按照优先级进行排序，由于队列是空的，想要获取消息的任务无法获取到消息。
+
+8. `uxMessagesWaiting` 用于记录当前消息队列的消息个数，如果消息队列被用于信号量的时候，这个值就表示有效信号量个数。
+
+9. `uxLength` 表示队列的长度，也就是能存放多少消息。
+
+10. `uxItemSize` 表示单个消息的大小。
+
+11. 队列上锁后，储存从队列收到的列表项数目，也就是出队的数量，如果队列没有上锁，设置为`queueUNLOCKED`。
+
+12. 队列上锁后，储存发送到队列的列表项数目，也就是入队的数量，如果队列没有上锁，设置为`queueUNLOCKED`。
+
+    这两个成员变量为 `queueUNLOCKED` 时，表示队列未上锁；当这两个成员变量为 `queueLOCKED_UNMODIFIED` 时，表示队列上锁
+
+### 5.6 消息队列常用函数讲解
+
+使用队列模块的典型流程如下：
+
+- 创建消息队列。
+- 写队列操作。
+- 读队列操作。
+- 删除队列。
+
+#### 5.6.1 消息队列创建函数 xQueueCreate()
+
+`xQueueCreate()` 用于创建一个新的队列并返回可用于访问这个队列的队列句柄。队列句柄其实就是一个指向队列数据结构类型的指针。
+
+队列就是一个数据结构，用于任务间的数据的传递。每创建一个新的队列都需要为其分配 RAM，一部分用于存储队列的状态，剩下的作为队列消息的存储区域。使用 `xQueueCreate()` 创建队列时，使用的是动态内存分配，所以要想使用该函数必须在 `FreeRTOSConfig.h` 中把 `configSUPPORT_DYNAMIC_ALLOCATION` 定义为 1 来使能，这是个用于使能动态内存分配的宏，通常情况下，在 FreeRTOS 中，凡是创建任务，队列，信号量和互斥量等内核对象都需要使用动态内存分配，所以这个宏默认在 `FreeRTOS.h` 头文件中已经使能（即定义为1）。如果想使用静态内存，则可以使用 `xQueueCreateStatic()` 函数来创建一个队列。使用静态创建消息队列函数创建队列时需要的形参更多，需要的内存由编译的时候预先分配好，一般很少使用这种方法。`xQueueCreate()` 函数原型具体见下面代码，使用说明见下面表格：
+
+```c
+#if( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
+#define xQueueCreate( uxQueueLength, uxItemSize ) \
+	xQueueGenericCreate( ( uxQueueLength ), ( uxItemSize ), ( queueQUEUE_TYPE_BASE ) )
+#endif
+```
+
+![image-20241107160813508](.assets/image-20241107160813508.png)
+
+从函数原型中，我们可以看到，创建队列真正使用的函数是 `xQueueGenericCreate()`，消息队列创建函数，顾名思义，就是创建一个队列，与任务一样，都是需要先创建才能使用的东西，FreeRTOS 肯定不知道我们需要什么样的队列，比如队列的长度，消息的大小这些信息都是需要我们自己定义的，FreeRTOS 提供给我们这个创建函数，爱怎么搞都是我们自己来实现，下面是 `xQueueGenericCreate()` 函数源码：
+
+```c
+#if( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
+
+	QueueHandle_t xQueueGenericCreate( const UBaseType_t uxQueueLength,
+									   const UBaseType_t uxItemSize,
+									   const uint8_t ucQueueType )
+	{
+		Queue_t *pxNewQueue;	
+        size_t xQueueSizeInBytes;
+		uint8_t *pucQueueStorage;
+
+        configASSERT( uxQueueLength > ( UBaseType_t ) 0 );
+
+        if ( uxItemSize == ( UBaseType_t ) 0 ) {
+        	/* 消息空间大小为0*/
+        	xQueueSizeInBytes = ( size_t ) 0; (1)
+        } else {
+            /* 分配足够消息存储空间，空间的大小为队列长度*单个消息大小 */
+            xQueueSizeInBytes = ( size_t ) ( uxQueueLength * uxItemSize ); (2)
+        }
+        /* 向系统申请内存，内存大小为消息队列控制块大小+消息存储空间大小 */
+        pxNewQueue=(Queue_t*)pvPortMalloc(sizeof(Queue_t)+xQueueSizeInBytes); (3)
+
+        if ( pxNewQueue != NULL ) {
+        	/* 计算出消息存储空间的起始地址 */
+       	 	pucQueueStorage = ( ( uint8_t * ) pxNewQueue ) + sizeof( Queue_t ); (4)
+
+    #if( configSUPPORT_STATIC_ALLOCATION == 1 )
+        	{
+            pxNewQueue->ucStaticallyAllocated = pdFALSE;
+        	}
+    #endif
+
+            prvInitialiseNewQueue( uxQueueLength, (5)
+            uxItemSize,
+            pucQueueStorage,
+            ucQueueType,
+            pxNewQueue );
+        }
+
+        return pxNewQueue;
+    }
+
+#endif
+```
+
+1. 如果 `uxItemSize` 为 0，也就是单个消息空间大小为 0，这样子就不需要申请内存了，那么 `xQueueSizeInBytes` 也设置为 0 即可，设置为 0 是可以的，用作信号量的时候这个就可以设置为 0。
+
+2. `uxItemSize` 并不是为 0，那么需要分配足够存储消息的空间，内存的大小为队列长度*单个消息大小。
+
+3. FreeRTOS 调用 `pvPortMalloc()` 函数向系统申请内存空间，内存大小为消息队列控制块大小加上消息存储空间大小，因为这段内存空间是需要保证连续的，具体见下图。
+
+    ![image-20241107161211663](.assets/image-20241107161211663.png)
+
+4. 计算出消息存储内存空间的起始地址，因为(3)步骤中申请的内存是包含了消息队列控制块的内存空间，但是我们存储消息的内存空间在消息队列控制块后面。
+
+5. 调用 `prvInitialiseNewQueue()` 函数将消息队列进行初始化。其实 `xQueueGenericCreate()` 主要是用于分配消息队列内存的，消息队列初始化函数源码具体见如下代码。
+
+    ```c
+    static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength, (1)
+                                       const UBaseType_t uxItemSize, (2)
+                                       uint8_t *pucQueueStorage, (3)
+                                       const uint8_t ucQueueType, (4)
+                                       Queue_t *pxNewQueue ) (5)
+    {
+    	( void ) ucQueueType;
+    
+    	if ( uxItemSize == ( UBaseType_t ) 0 ) {
+    	/* 没有为消息存储分配内存,但是pcHead 指针不能设置为NULL,
+    	   因为队列用作互斥量时,pcHead 要设置成NULL。
+           这里只是将pcHead 指向一个已知的区域 */
+    		pxNewQueue->pcHead = ( int8_t * ) pxNewQueue; (6)
+    	} else {
+    		/* 设置pcHead 指向存储消息的起始地址 */
+    		pxNewQueue->pcHead = ( int8_t * ) pucQueueStorage; (7)
+    	}
+    
+    	/* 初始化消息队列控制块的其他成员 */
+    	pxNewQueue->uxLength = uxQueueLength; (8)
+    	pxNewQueue->uxItemSize = uxItemSize;
+    	/* 重置消息队列 */
+    	( void ) xQueueGenericReset( pxNewQueue, pdTRUE ); (9)
+    
+    #if ( configUSE_TRACE_FACILITY == 1 )
+    	{
+    		pxNewQueue->ucQueueType = ucQueueType;
+    	}
+    #endif
+    
+    #if( configUSE_QUEUE_SETS == 1 )
+    {
+    	pxNewQueue->pxQueueSetContainer = NULL;
+    }
+    #endif
+    
+    	traceQUEUE_CREATE( pxNewQueue );
+    }
+    ```
+
+    1. 消息队列长度。
+    2. 单个消息大小。
+    3. 存储消息起始地址。
+    4. 消息队列类型：
+        - queueQUEUE_TYPE_BASE：表示队列 。
+        - queueQUEUE_TYPE_SET：表示队列集合 。
+        - queueQUEUE_TYPE_MUTEX：表示互斥量。
+        - queueQUEUE_TYPE_COUNTING_SEMAPHORE：表示计数信号量 。
+        - queueQUEUE_TYPE_BINARY_SEMAPHORE：表示二进制信号量 。
+        - queueQUEUE_TYPE_RECURSIVE_MUTEX ：表示递归互斥量。
+    5. 消息队列控制块。
+    6. 如果没有为消息队列分配存储消息的内存空间，而且 `pcHead` 指针不能设置为 NULL，因为队列用作互斥量时，`pcHead` 要设置成NULL，这里只能将 `pcHead `指向一个已知的区域，指向消息队列控制块`pxNewQueue`。
+    7. 如果分配了存储消息的内存空间，则设置 `pcHead` 指向存储消息的起始地址 `pucQueueStorage`。
+    8. 初始化消息队列控制块的其他成员，消息队列的长度与消息的大小。
+    9. 重置消息队列，在消息队列初始化的时候，需要重置一下相关参数
+
+创建完成的消息队列示意图：
+
+![image-20241107162703180](.assets/image-20241107162703180.png)
+
+**在创建消息队列的时候，是需要用户自己定义消息队列的句柄的，但是注意了，定义了队列的句柄并不等于创建了队列，创建队列必须是调用消息队列创建函数进行创建**（可以是静态也可以是动态创建），否则，以后根据队列句柄使用消息队列的其它函数的时候会发生错误，创建完成会返回消息队列的句柄，用户通过句柄就可使用消息队列进行发送与读取消息队列的操作，如果返回的是 NULL 则表示创建失败，消息队列创建函数 `xQueueCreate()` 使用实例具体如下：
+
+```c
+QueueHandle_t Test_Queue =NULL;
+
+#define QUEUE_LEN 4 /* 队列的长度，最大可包含多少个消息 */
+#define QUEUE_SIZE 4 /* 队列中每个消息大小（字节） */
+
+BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
+
+taskENTER_CRITICAL(); //进入临界区
+
+/* 创建Test_Queue */
+Test_Queue = xQueueCreate((UBaseType_t ) QUEUE_LEN,/* 消息队列的长度 */
+						  (UBaseType_t ) QUEUE_SIZE);/* 消息的大小 */
+if (NULL != Test_Queue)
+	printf("创建Test_Queue 消息队列成功!\r\n");
+
+taskEXIT_CRITICAL(); //退出临界区
+```
+
+#### 5.6.2 消息队列静态创建函数 xQueueCreateStatic()
+
+`xQueueCreateStatic()` 用于创建一个新的队列并返回可用于访问这个队列的队列句柄。队列句柄其实就是一个指向队列数据结构类型的指针。
+
+队列就是一个数据结构，用于任务间的数据的传递。每创建一个新的队列都需要为其分配 RAM ， 一部分用于存储队列的状态， 剩下的作为队列的存储区。使用 `xQueueCreateStatic()` 创建队列时，使用的是静态内存分配，所以要想使用该函数必须在 `FreeRTOSConfig.h` 中把 `configSUPPORT_STATIC_ALLOCATION` 定义为 1 来使能。这是个用于使能静态内存分配的宏，需要的内存在程序编译的时候分配好，由用户自己定义，其实创建过程与`xQueueCreate()` 都是差不多的。
+
+![image-20241107163113140](.assets/image-20241107163113140.png)
+
+使用示例：
+
+```c
+/* 创建一个可以最多可以存储10 个64 位变量的队列 */
+#define QUEUE_LENGTH 10
+#define ITEM_SIZE sizeof( uint64_t )
+
+/* 该变量用于存储队列的数据结构 */
+static StaticQueue_t xStaticQueue;
+
+/* 该数组作为队列的存储区域，大小至少有uxQueueLength * uxItemSize 个字节 */
+uint8_t ucQueueStorageArea[ QUEUE_LENGTH * ITEM_SIZE ];
+
+void vATask( void *pvParameters )
+{
+	QueueHandle_t xQueue;
+
+	/* 创建一个队列 */
+	xQueue = xQueueCreateStatic( QUEUE_LENGTH, /* 队列深度 */
+								 ITEM_SIZE, /* 队列数据单元的单位 */
+								 ucQueueStorageArea,/* 队列的存储区域 */
+								 &xStaticQueue ); /* 队列的数据结构 */
+	/* 剩下的其他代码 */
+}
+```
+
+#### 5.6.3 消息队列删除函数 vQueueDelete()
+
+队列删除函数是根据消息队列句柄直接删除的，删除之后这个消息队列的所有信息都会被系统回收清空，而且不能再次使用这个消息队列了，但是需要注意的是，如果某个消息队列没有被创建，那也是无法被删除的，动脑子想想都知道，没创建的东西就不存在，怎么可能被删除。`xQueue`  是 `vQueueDelete()` 函数的形参，是消息队列句柄，表示的是要删除哪个想队列。
+
+```c
+void vQueueDelete( QueueHandle_t xQueue )
+{
+	Queue_t * const pxQueue = ( Queue_t * ) xQueue;
+
+	/* 断言 */
+	configASSERT( pxQueue ); (1)
+	traceQUEUE_DELETE( pxQueue );
+
+#if ( configQUEUE_REGISTRY_SIZE > 0 )
+{
+	/* 将消息队列从注册表中删除，我们目前没有添加到注册表中，暂时不用理会 */
+	vQueueUnregisterQueue( pxQueue ); (2)
+}
+#endif
+
+#if( ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )&& ( configSUPPORT_STATIC_ALLOCATION == 0 ) ) {
+	/* 因为用的消息队列是动态分配内存的，所以需要调用 vPortFree 来释放消息队列的内存 */
+	vPortFree( pxQueue ); (3)
+}
+}
+```
+
+1. 对传入的消息队列句柄进行检查，如果消息队列是有效的才允许进行删除操作。
+2. 将消息队列从注册表中删除，我们目前没有添加到注册表中，暂时不用理会。
+3. 因为用的消息队列是动态分配内存的，所以需要调用 `vPortFree()` 函数来释放消息队列的内存。
+
+消息队列删除函数 `vQueueDelete()` 的使用也是很简单的，只需传入要删除的消息队列的句柄即可，调用函数时，系统将删除这个消息队列。需要注意的是调用删除消息队列函数前，系统应存在 `xQueueCreate()` 或`xQueueCreateStatic()` 函数创建的消息队列。此外 `vQueueDelete()` 也可用于删除信号量。如果删除消息队列时，有任务正在等待消息，则不应该进行删除操作（官方说的是不允许进行删除操作，但是源码并没有禁止删除的操作，使用的时候注意一下就行了）。
+
+使用示例：
+
+```c
+#define QUEUE_LENGTH 5
+#define QUEUE_ITEM_SIZE 4
+
+int main( void )
+{
+	QueueHandle_t xQueue;
+	/* 创建消息队列 */
+	xQueue = xQueueCreate( QUEUE_LENGTH, QUEUE_ITEM_SIZE );
+
+	if ( xQueue == NULL ) {
+		/* 消息队列创建失败 */
+	} else {
+		/* 删除已创建的消息队列 */
+		vQueueDelete( xQueue );
+	}
+}
+```
+
+#### 5.6.4 向消息队列发送消息函数
+
+任务或者中断服务程序都可以给消息队列发送消息，当发送消息时，如果队列未满或者允许覆盖入队，FreeRTOS 会将消息拷贝到消息队列队尾，否则，会根据用户指定的阻塞超时时间进行阻塞，在这段时间中，如果队列一直不允许入队，该任务将保持阻塞状态以等待队列允许入队。当其它任务从其等待的队列中读取入了数据（队列未满），该任务将自动由阻塞态转为就绪态。当任务等待的时间超过了指定的阻塞时间，即使队列中还不允许入队，任务也会自动从阻塞态转移为就绪态，此时发送消息的任务或者中断程序会收到一个错误码 `errQUEUE_FULL`。
+
+发送紧急消息的过程与发送消息几乎一样，唯一的不同是，当发送紧急消息时，发送的位置是消息队列队头而非队尾，这样，接收者就能够优先接收到紧急消息，从而及时进行消息处理。
+
+其实消息队列发送函数有好几个，都是使用宏定义进行展开的，有些只能在任务调用，有些只能在中断中调用，具体见下面讲解。
+
+##### 5.6.4.1 xQueueSend() 与 xQueueSendToBack()
+
+```c
+#define xQueueSend( xQueue, pvItemToQueue, xTicksToWait ) \
+					xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), \
+									   ( xTicksToWait ), queueSEND_TO_BACK )
+```
+
+```c
+#define xQueueSendToBack( xQueue, pvItemToQueue, xTicksToWait ) \
+						  xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), \
+											 ( xTicksToWait ), queueSEND_TO_BACK )
+```
+
+`xQueueSend()` 是一个宏，宏展开是调用函数 `xQueueGenericSend()`，这个函数在后面会详细讲解其实现过程。该宏是为了向后兼容没有包含 `xQueueSendToFront()` 和 `xQueueSendToBack()` 这两个宏的 FreeRTOS 版本。`xQueueSend()` 等同于 `xQueueSendToBack()`。
+
+`xQueueSend()` 用于向队列尾部发送一个队列消息。消息以拷贝的形式入队，而不是以引用的形式。**该函数绝对不能在中断服务程序里面被调用，中断中必须使用带有中断保护功能的 `xQueueSendFromISR()` 来代替**。`xQueueSend()` 函数的具体说明见下面表格 ，应用实例具体见下面代码。
+
+![image-20241107164117907](.assets/image-20241107164117907.png)
+
+```c
+static void Send_Task(void* parameter)
+{
+	BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
+	uint32_t send_data1 = 1;
+	uint32_t send_data2 = 2;
+	while (1) {
+		if ( Key_Scan(KEY1_GPIO_PORT,KEY1_GPIO_PIN) == KEY_ON ) {
+			/* K1 被按下 */
+			printf("发送消息send_data1！\n");
+ 			xReturn = xQueueSend( Test_Queue, /* 消息队列的句柄 */
+								  &send_data1,/* 发送的消息内容 */
+ 								  0 ); /* 等待时间 0 */
+			if (pdPASS == xReturn)
+ 				printf("消息send_data1 发送成功!\n\n");
+ 		}
+ 		if ( Key_Scan(KEY2_GPIO_PORT,KEY2_GPIO_PIN) == KEY_ON ) {
+			/* K2 被按下 */
+ 			printf("发送消息send_data2！\n");
+			xReturn = xQueueSend( Test_Queue, /* 消息队列的句柄 */
+                                  &send_data2,/* 发送的消息内容 */
+								  0 ); /* 等待时间 0 */
+			if (pdPASS == xReturn)
+				printf("消息send_data2 发送成功!\n\n");
+		}
+ 		vTaskDelay(20);/* 延时20 个tick */
+ 	}
+}
+```
+
+##### 5.6.4.2 xQueueSendFromISR() 与 xQueueSendToBackFromISR()
+
+```c
+#define xQueueSendToFrontFromISR(xQueue,pvItemToQueue,pxHigherPriorityTaskWoken) \
+		xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ),\
+								  ( pxHigherPriorityTaskWoken ), queueSEND_TO_FRONT )
+```
+
+`xQueueSendToBackFromISR` 等同于 `xQueueSendFromISR ()`。
+
+```c
+#define xQueueSendToBackFromISR(xQueue,pvItemToQueue,pxHigherPriorityTaskWoken) \
+		xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ), \
+							      ( pxHigherPriorityTaskWoken ), queueSEND_TO_BACK )
+```
+
+`xQueueSendFromISR()` 是一个宏，宏展开是调用函数 `xQueueGenericSendFromISR()`。该宏是 `xQueueSend()`的中断保护版本，用于在中断服务程序中向队列尾部发送一个队列消息，等价于 `xQueueSendToBackFromISR()`。`xQueueSendFromISR()`函数具体说明见下面表格，使用实例具体见下面代码。
+
+![image-20241107164625002](.assets/image-20241107164625002.png)
+
+```c
+void vBufferISR( void )
+{
+	char cIn;
+	BaseType_t xHigherPriorityTaskWoken;
+
+	/* 在ISR 开始的时候，我们并没有唤醒任务 */
+    xHigherPriorityTaskWoken = pdFALSE;
+
+	/* 直到缓冲区为空 */
+	do {
+		/* 从缓冲区获取一个字节的数据 */
+		cIn = portINPUT_BYTE( RX_REGISTER_ADDRESS );
+
+		/* 发送这个数据 */
+		xQueueSendFromISR( xRxQueue, &cIn, &xHigherPriorityTaskWoken );
+
+	} while ( portINPUT_BYTE( BUFFER_COUNT ) );
+
+	/* 这时候buffer 已经为空，如果需要则进行上下文切换 */
+	if ( xHigherPriorityTaskWoken ) {
+		/* 上下文切换，这是一个宏，不同的处理器，具体的方法不一样 */
+		taskYIELD_FROM_ISR ();
+	}
+}
+```
+
+##### 5.6.4.3 xQueueSendToFront()
+
+```c
+#define xQueueSendToFront( xQueue, pvItemToQueue, xTicksToWait ) \
+		xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), \
+						   ( xTicksToWait ), queueSEND_TO_FRONT )
+```
+
+`xQueueSendToFron()` 是一个宏， 宏展开也是调用函数 `xQueueGenericSend()` 。`xQueueSendToFront()` 用于向队列队首发送一个消息。消息以拷贝的形式入队，而不是以引用的形式。**该函数绝不能在中断服务程序里面被调用，而是必须使用带有中断保护功能的 `xQueueSendToFrontFromISR ()` 来代替**。`xQueueSendToFron()` 函数的具体说明见下面表格，使用方式与 `xQueueSend()` 函数一致。
+
+![image-20241107164949180](.assets/image-20241107164949180.png)
+
+##### 5.6.4.4 xQueueSendToFrontFromISR()
+
+```c
+#define xQueueSendToFrontFromISR( xQueue,pvItemToQueue,pxHigherPriorityTaskWoken ) \
+		xQueueGenericSendFromISR( ( xQueue ), ( pvItemToQueue ),
+							      ( pxHigherPriorityTaskWoken ), queueSEND_TO_FRONT )
+```
+
+`xQueueSendToFrontFromISR()` 是一个宏， 宏展开是调用函数 `xQueueGenericSendFromISR()`。该宏是`xQueueSendToFront()` 的中断保护版本，用于在中断服务程序中向消息队列队首发送一个消息。`xQueueSendToFromISR()`函数具体说明见下面表格，使用方式与 `xQueueSendFromISR()` 函数一致。
+
+![image-20241107165411369](.assets/image-20241107165411369.png)
+
+##### 5.6.4.5 通用消息队列发送函数 xQueueGenericSend() (任务)
+
+上面看到的那些在任务中发送消息的函数都是 `xQueueGenericSend()` 展开的宏定义，真正起作用的就是`xQueueGenericSend()` 函数，根据指定的参数不一样，发送消息的结果就不一样，下面一起看看任务级的通用消息队列发送函数的实现过程：
+
+```
+
+```
+
+##### 5.6.4.6 消息队列发送函数 xQueueGenericSendFromISR()（中断）
+
+既然有任务中发送消息的函数，当然也需要有在中断中发送消息函数，其实这个函数跟 `xQueueGenericSend()` 函数很像， 只不过是执行的上下文环境是不一样的，`xQueueGenericSendFromISR()` 函数只能用于中断中执行，是不带阻塞机制的。
+
+```
+
+```
+
+#### 5.6.5 从消息队列读取消息函数
+
+当任务试图读队列中的消息时，可以指定一个阻塞超时时间，当且仅当消息队列中有消息的时候，任务才能读取到消息。在这段时间中，如果队列为空，该任务将保持阻塞状态以等待队列数据有效。当其它任务或中断服务程序往其等待的队列中写入了数据，该任务将自动由阻塞态转为就绪态。当任务等待的时间超过了指定的阻塞时间，即使队列中尚无有效数据，任务也会自动从阻塞态转移为就绪态。
+
+##### 5.6.5.1 xQueueReceive() 与 xQueuePeek()
+
+```c
+#define xQueueReceive( xQueue, pvBuffer, xTicksToWait ) \
+		xQueueGenericReceive( ( xQueue ), ( pvBuffer ), \
+							  ( xTicksToWait ), pdFALSE )
+```
+
+`xQueueReceive()` 是一个宏， 宏展开是调用函数 `xQueueGenericReceive()` 。`xQueueReceive()` 用于从一个队列中接收消息并把消息从队列中删除。接收的消息是以拷贝的形式进行的，所以我们必须提供一个足够大空间的缓冲区。具体能够拷贝多少数据到缓冲区，这个在队列创建的时候已经设定。该函数绝不能在中断服务程序里面被调用，而是必须使用带有中断保护功能的 `xQueueReceiveFromISR ()` 来代替。
+
+![image-20241107170052869](.assets/image-20241107170052869.png)
+
+使用示例：
+
+```c
+static void Receive_Task(void* parameter)
+{
+	BaseType_t xReturn = pdTRUE;/* 定义一个创建信息返回值，默认为pdPASS */
+	uint32_t r_queue; /* 定义一个接收消息的变量 */
+	while (1) {
+		xReturn = xQueueReceive( Test_Queue, /* 消息队列的句柄 */
+								 &r_queue, /* 发送的消息内容 */
+								 portMAX_DELAY); /* 等待时间 一直等 */
+	if (pdTRUE== xReturn)
+		printf("本次接收到的数据是：%d\n\n",r_queue);
+	else
+		printf("数据接收出错,错误代码: 0x%lx\n",xReturn);
+	}
+}
+```
+
+看到这里，有人就问了如果我接收了消息不想删除怎么办呢？其实，你能想到的东西，FreeRTOS 看到也想到了，如果不想删除消息的话，就调用 `xQueuePeek()` 函数。其实这个函数与 `xQueueReceive()` 函数的实现方式一样，连使用方法都一样，只不过 `xQueuePeek()` 函数接收消息完毕不会删除消息队列中的消息而已。
+
+```c
+#define xQueuePeek( xQueue, pvBuffer, xTicksToWait ) \
+		xQueueGenericReceive( ( xQueue ), ( pvBuffer ), \
+							  ( xTicksToWait ), pdTRUE )
+```
+
+##### 5.6.5.2 xQueueReceiveFromISR() 与 xQueuePeekFromISR()
+
+`xQueueReceiveFromISR()` 是 `xQueueReceive ()` 的中断版本，用于在中断服务程序中接收一个队列消息并把消息从队列中删除；`xQueuePeekFromISR()` 是 `xQueuePeek()` 的中断版本，用于在中断中从一个队列中接收消息，但并不会把消息从队列中移除。
+
+说白了这两个函数只能用于中断，是不带有阻塞机制的，并且是在中断中可以安全调用。
+
+![image-20241107170547001](.assets/image-20241107170547001.png)
+
+![image-20241107170559745](.assets/image-20241107170559745.png)
+
+![image-20241107170616785](.assets/image-20241107170616785.png)
+
+使用示例：
+
+```c
+QueueHandle_t xQueue;
+
+/* 创建一个队列，并往队列里面发送一些数据 */
+void vAFunction( void *pvParameters )
+{
+	char cValueToPost;
+	const TickType_t xTicksToWait = ( TickType_t )0xff;
+
+	/* 创建一个可以容纳10 个字符的队列 */
+	xQueue = xQueueCreate( 10, sizeof( char ) );
+	if ( xQueue == 0 ) {
+		/* 队列创建失败 */
+	}
+
+	/* ... 任务其他代码 */
+	
+	/* 往队列里面发送两个字符如果队列满了则等待xTicksToWait 个系统节拍周期*/
+	cValueToPost = 'a';
+	xQueueSend( xQueue, ( void * ) &cValueToPost, xTicksToWait );
+    cValueToPost = 'b';
+	xQueueSend( xQueue, ( void * ) &cValueToPost, xTicksToWait );
+    
+	/* 继续往队列里面发送字符当队列满的时候该任务将被阻塞*/
+	cValueToPost = 'c';
+	xQueueSend( xQueue, ( void * ) &cValueToPost, xTicksToWait );
+}
+
+/* 中断服务程序：输出所有从队列中接收到的字符 */
+void vISR_Routine( void )
+{
+	BaseType_t xTaskWokenByReceive = pdFALSE;
+	char cRxedChar;
+
+	while ( xQueueReceiveFromISR( xQueue,
+                                 ( void * ) &cRxedChar,
+                                 &xTaskWokenByReceive) ) {
+
+		/* 接收到一个字符，然后输出这个字符 */
+		vOutputCharacter( cRxedChar );
+	
+		/* 如果从队列移除一个字符串后唤醒了向此队列投递字符的任务，
+	   	   那么参数xTaskWokenByReceive 将会设置成pdTRUE，这个循环无论重复多少次，
+       	   仅会有一个任务被唤醒 */
+	}
+
+	if ( xTaskWokenByReceive != pdFALSE ) {
+	/* 我们应该进行一次上下文切换，当ISR 返回的时候则执行另外一个任务 */
+    	/* 这是一个上下文切换的宏，不同的处理器，具体处理的方式不一样 */
+		taskYIELD ();
+	}
+}
+```
+
+##### 5.6.5.3 从队列读取消息函数 xQueueGenericReceive()
+
+由于在中断中接收消息的函数用的并不多，我们只讲解在任务中读取消息的函数——`xQueueGenericReceive()`
+
+```
+
+```
+
+### 5.7 消息队列使用注意事项
+
+在使用 FreeRTOS 提供的消息队列函数的时候，需要了解以下几点：
+1. 使用 `xQueueSend()`、`xQueueSendFromISR()`、`xQueueReceive()` 等这些函数之前应先创建需消息队列，并根据队列句柄进行操作。
+2. 队列读取采用的是先进先出（FIFO）模式，会先读取先存储在队列中的数据。当然也 FreeRTOS 也支持后进先出（LIFO）模式，那么读取的时候就会读取到后进队列的数据。
+3. 在获取队列中的消息时候，我们必须要定义一个存储读取数据的地方，并且该数据区域大小不小于消息大小，否则，很可能引发地址非法的错误。
+4. 无论是发送或者是接收消息都是以拷贝的方式进行，如果消息过于庞大，可以将消息的地址作为消息进行发送、接收。
+5. 队列是具有自己独立权限的内核对象，并不属于任何任务。所有任务都可以向同一队列写入和读出。一个队列由多任务或中断写入是经常的事，但由多个任务读出倒是用的比较少。
+
+### 5.7 消息队列实验
+
+消息队列实验是在 FreeRTOS 中创建了两个任务，一个是发送消息任务，一个是获取消息任务，两个任务独立运行，发送消息任务是通过检测按键的按下情况来发送消息，假如发送消息不成功，就把返回的错误情代码在串口打印出来，另一个任务是获取消息任务，在消息队列没有消息之前一直等待消息，一旦获取到消息就把消息打印在串口调试助手里。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define QUEUE_LEN  4
+#define QUEUE_SIZE 4
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t LED1_Task_Handle = NULL;
+static TaskHandle_t Key0_Task_Handle = NULL;
+
+QueueHandle_t Test_Queue = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void LED1_Task(void* argument)
+{
+	BaseType_t xReturn = pdTRUE;
+	uint32_t r_queue;
+
+	while(1)
+    {
+		xReturn = xQueueReceive(Test_Queue, &r_queue, portMAX_DELAY);
+		if (pdTRUE == xReturn) {
+			printf("LED1 Task received data: %d.\r\n", r_queue);
+			__BSP_LED1_Ficker(100);
+		}
+		else {
+			printf("LED1 Task receive data failed. %d\r\n", xReturn);
+		}
+		vTaskDelay(20);
+    }
+}
+
+static void Key0_Task(void *argument)
+{
+	BaseType_t xReturn = pdTRUE;
+	uint32_t send_data1 = 1;
+	uint32_t send_data2 = 2;
+
+	while (1)
+    {
+        if (BSP_KEY_Read(0) ==  GPIO_PIN_RESET)
+        {
+            printf("Send data: %d.\r\n", send_data1);
+			xReturn = xQueueSend(Test_Queue, &send_data1, portMAX_DELAY);
+        }
+		else if (BSP_KEY_Read(1) ==  GPIO_PIN_RESET)
+        {
+            printf("Send data: %d.\r\n", send_data2);
+			xReturn = xQueueSend(Test_Queue, &send_data2, portMAX_DELAY);
+        }
+        vTaskDelay(1000);
+    }
+}
+
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    taskENTER_CRITICAL();
+
+	Test_Queue = xQueueCreate((UBaseType_t)QUEUE_LEN,
+							  (UBaseType_t)QUEUE_SIZE);
+
+	if (NULL != Test_Queue)
+		printf("Test Queue created successfully.\r\n");
+
+	xReturn = xTaskCreate(LED1_Task,
+                          "LED1_Task",
+                          256,      
+                          NULL,
+                          4,
+                          &LED1_Task_Handle);
+
+    if (pdPASS == xReturn)
+		printf("LED1 Task created successfully.\r\n");
+
+	xReturn = xTaskCreate(Key0_Task,
+                          "Key0_Task",
+                          256,
+                          NULL,
+                          3,
+                          &Key0_Task_Handle);
+	
+	if (pdPASS == xReturn)
+		printf("Key0 Task created successfully.\r\n\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  /* USER CODE BEGIN 2 */
+
+  BaseType_t xReturn = pdPASS;
+
+  BSP_LED_Init();
+  BSP_KEY_Init();
+
+  printf("FreeRTOS Demo Application.\r\n");
+
+  xReturn = xTaskCreate(AppTaskCreate,
+                        "AppTaskCreate",
+                        512,
+                        NULL,
+                        1,
+                        &APPCreate_Handle);
+  if (pdPASS == xReturn)
+  {
+      printf("AppTaskCreate created successfully.\r\n");
+      vTaskStartScheduler();
+  }
+  else
+      return -1;
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 72;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM2 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM2) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+## 六. 信号量
+
+回想一下，是否在裸机编程中这样使用过一个变量：用于标记某个事件是否发生，或者标志一下某个东西是否正在被使用，如果是被占用了的或者没发生，我们就不对它进行操作。
+
+### 6.1 信号量基本概念
+
+信号量（Semaphore）是一种实现任务间通信的机制，可以实现任务之间同步或临界资源的互斥访问，常用于协助一组相互竞争的任务来访问临界资源。在多任务系统中，各任务之间需要同步或互斥实现临界资源的保护，信号量功能可以为用户提供这方面的支持。
+
+抽象的来讲，信号量是一个非负整数，所有获取它的任务都会将该整数减一（获取它当然是为了使用资源），当该整数值为零时，所有试图获取它的任务都将处于阻塞状态。通常一个信号量的计数值用于对应有效的资源数，表示剩下的可被占用的互斥资源数。其值的含义分两种情况：
+
+- 0：表示没有积累下来的释放信号量操作，且有可能有在此信号量上阻塞的任务。、
+- 正值，表示有一个或多个释放信号量操作。
+
+#### 6.1.1 二值信号量
+
+二值信号量既可以用于临界资源访问也可以用于同步功能。
+
+二值信号量和互斥信号量（以下使用互斥量表示互斥信号量）非常相似，但是有一些细微差别：**互斥量有优先级继承机制**，二值信号量则没有这个机制。这使得**二值信号量更偏向应用于同步功能**（任务与任务间的同步或任务和中断间同步），而**互斥量更偏向应用于临界资源的访问**。
+
+用作同步时，信号量在创建后应被置为空，任务 1 获取信号量而进入阻塞，任务 2 在某种条件发生后，释放信号量，于是任务 1 获得信号量得以进入就绪态，如果任务 1 的优先级是最高的，那么就会立即切换任务，从而达到了两个任务间的同步。同样的，在中断服务函数中释放信号量，任务 1 也会得到信号量，从而达到任务与中断间的同步。
+
+还记得我们经常说的中断要快进快出吗，在裸机开发中我们经常是在中断中做一个标记，然后在退出的时候进行轮询处理，这个就是类似我们使用信号量进行同步的，当标记发生了，我们再做其他事情。在 FreeRTOS 中我们用信号量用于同步，任务与任务的同步，中断与任务的同步，可以大大提高效率。
+
+可以将二值信号量看作只有一个消息的队列，因此这个队列只能为空或满（因此称为二值），我们**在运用的时候只需要知道队列中是否有消息即可，而无需关注消息是什么。**
+
+#### 6.1.2 计数信号量
+
+二进制信号量可以被认为是长度为 1 的队列，而计数信号量则可以被认为长度大于1的队列，信号量使用者依然不必关心存储在队列中的消息，只需关心队列是否有消息即可。
+
+顾名思义，计数信号量肯定是用于计数的，在实际的使用中，我们常将计数信号量用于事件计数与资源管理。每当某个事件发生时，任务或者中断将释放一个信号量（信号量计数值加1），当处理被事件时（一般在任务中处理），处理任务会取走该信号量（信号量计数值减1），信号量的计数值则表示还有多少个事件没被处理。此外，系统还有很多资源，我们也可以使用计数信号量进行资源管理，信号量的计数值表示系统中可用的资源数目，任务必须先获取到信号量才能获取资源访问权，当信号量的计数值为零时表示系统没有可用的资源，但是要注意，在使用完资源的时候必须归还信号量，否则当计数值为 0 的时候任务就无法访问该资源了。
+
+计数型信号量允许多个任务对其进行操作，但限制了任务的数量。比如有一个停车场，里面只有 100 个车位，那么能停的车只有 100 辆，也相当于我们的信号量有 100 个，假如一开始停车场的车位还有 100 个，那么每进去一辆车就要消耗一个停车位，车位的数量就要减一，对应的，我们的信号量在使用之后也需要减一，当停车场停满了 100 辆车的时候，此时的停车位为0，再来的车就不能停进去了，否则将造成事故，也相当于我们的信号量为0，后面的任务对这个停车场资源的访问也无法进行，当有车从停车场离开的时候，车位又空余出来了，那么，后面的车就能停进去了，我们信号量的操作也是一样的，当我们释放了这个资源，后面的任务才能对这个资源进行访问。
+
+#### 6.1.3 互斥信号量
+
+互斥信号量其实是特殊的二值信号量，由于其特有的优先级继承机制从而使它更适用于简单互锁，也就是保护临界资源（什么是优先级继承在后续相信讲解）。
+
+用作互斥时，信号量创建后可用信号量个数应该是满的，任务在需要使用临界资源时，（临界资源是指任何时刻只能被一个任务访问的资源），先获取互斥信号量，使其变空，这样其他任务需要使用临界资源时就会因为无法获取信号量而进入阻塞，从而保证了临界资源的安全。
+
+在操作系统中，我们使用信号量的很多时候是为了给临界资源建立一个标志，信号量表示了该临界资源被占用情况。这样，当一个任务在访问临界资源的时候，就会先对这个资源信息进行查询，从而在了解资源被占用的情况之后，再做处理，从而使得临界资源得到有效的保护。
+
+#### 6.1.4 递归信号量
+
+递归信号量，见文知义，递归嘛，就是可以重复获取调用的，本来按照信号量的特性，每获取一次可用信号量个数就会减少一个，但是递归则不然，对于已经获取递归互斥量的任务可以重复获取该递归互斥量，该任务拥有递归信号量的所有权。任务成功获取几次递归互斥量，就要返还几次，在此之前递归互斥量都处于无效状态，其他任务无法获取，只有持有递归信号量的任务才能获取与释放。
+
+### 6.2 二值信号量应用场景
+
+在嵌入式操作系统中二值信号量是任务间、任务与中断间同步的重要手段，信号量使用最多的一般都是二值信号量与互斥信号量（互斥信号量在下一章讲解）。为什么叫二值信号量呢？因为信号量资源被获取了，信号量值就是 0，信号量资源被释放，信号量值就是 1，把这种只有 0 和 1 两种情况的信号量称之为二值信号量。
+
+在多任务系统中，我们经常会使用这个二值信号量，比如，某个任务需要等待一个标记，那么任务可以在轮询中查询这个标记有没有被置位，但是这样子做，就会很消耗 CPU 资源并且妨碍其它任务执行，更好的做法是任务的大部分时间处于阻塞状态（允许其它任务执行），直到某些事件发生该任务才被唤醒去执行。可以使用二进制信号量实现这种同步，当任务取信号量时，因为此时尚未发生特定事件，信号量为空，任务会进入阻塞状态；当事件的条件满足后，任务/中断便会释放信号量，告知任务这个事件发生了，任务取得信号量便被唤醒去执行对应的操作，任务执行完毕并不需要归还信号量，这样子的 CPU 的效率可以大大提高，而且实时响应也是最快的。
+
+再比如某个任务使用信号量在等中断的标记的发生，在这之前任务已经进入了阻塞态，在等待着中断的发生，当在中断发生之后，释放一个信号量，也就是我们常说的标记，当它退出中断之后，操作系统会进行任务的调度，如果这个任务能够运行，系统就会把等待这个任务运行起来，这样子就大大提高了我们的效率。
+
+二值信号量在任务与任务中同步的应用场景：假设我们有一个温湿度的传感器，假设是1s 采集一次数据，那么我们让他在液晶屏中显示数据出来，这个周期也是要1s 一次的，如果液晶屏刷新的周期是100ms 更新一次，那么此时的温湿度的数据还没更新，液晶屏根本无需刷新，只需要在1s 后温湿度数据更新的时候刷新即可，否则 CPU 就是白白做了多次的无效数据更新，CPU 的资源就被刷新数据这个任务占用了大半，造成CPU 资源浪费，如果液晶屏刷新的周期是10s 更新一次，那么温湿度的数据都变化了10 次，液晶屏才来更新数据，那拿这个产品有啥用，根本就是不准确的，所以，还是需要同步协调工作，在温湿度采集完毕之后，进行液晶屏数据的刷新，这样子，才是最准确的，并且不会浪费CPU的资源。
+
+同理，二值信号量在任务与中断同步的应用场景：我们在串口接收中，我们不知道啥时候有数据发送过来，有一个任务是做接收这些数据处理，总不能在任务中每时每刻都在任务查询有没有数据到来，那样会浪费CPU 资源，所以在这种情况下使用二值信号量是很好的办法，当没有数据到来的时候，任务就进入阻塞态，不参与任务的调度，等到数据到来了，释放一个二值信号量，任务就立即从阻塞态中解除，进入就绪态，然后运行的时候处理数据，这样子系统的资源就会很好的被利用起来。
+
+### 6.3 二值信号量运作机制
+
+创建信号量时，系统会为创建的信号量对象分配内存，并把可用信号量初始化为用户自定义的个数， 二值信号量的最大可用信号量个数为1。
+
+二值信号量获取，任何任务都可以从创建的二值信号量资源中获取一个二值信号量，获取成功则返回正确，否则任务会根据用户指定的阻塞超时时间来等待其它任务/中断释放信号量。在等待这段时间，系统将任务变成阻塞态，任务将被挂到该信号量的阻塞等待列表中。
+
+在二值信号量无效的时候，假如此时有任务获取该信号量的话，那么任务将进入阻塞状态，具体见下图：
+
+![image-20241107184310757](.assets/image-20241107184310757.png)
+
+假如某个时间中断/任务释放了信号量，其过程具体见下图，那么，由于获取无效信号量而进入阻塞态的任务将获得信号量并且恢复为就绪态，其过程具体见下图：
+
+![image-20241107184334677](.assets/image-20241107184334677.png)
+
+![image-20241107184341244](.assets/image-20241107184341244.png)
+
+
+
+### 6.4 计数信号量运作机制
+
+计数信号量可以用于资源管理，允许多个任务获取信号量访问共享资源，但会限制任务的最大数目。访问的任务数达到可支持的最大数目时，会阻塞其他试图获取该信号量的任务，直到有任务释放了信号量。这就是计数型信号量的运作机制，虽然计数信号量允许多个任务访问同一个资源，但是也有限定，比如某个资源限定只能有3 个任务访问，那么第4 个任务访问的时候，会因为获取不到信号量而进入阻塞，等到有任务（比如任务1）释放掉该资源的时候，第4 个任务才能获取到信号量从而进行资源的访问，其运作的机制具体见下图：
+
+![image-20241107184446961](.assets/image-20241107184446961.png)
+
+### 6.5 信号量控制块
+
+信号量 API 函数实际上都是宏，它使用现有的队列机制，这些宏定义在 `semphr.h` 文件中，如果使用信号量或者互斥量，需要包含 `semphr.h` 头文件。所以 FreeRTOS 的信号量控制块结构体与消息队列结构体是一模一样的，只不过结构体中某些成员变量代表的含义不一样而已，我们会具体讲解一下哪里与消息队列不一样。先来看看信号量控制块，具体见下面代码：
+
+```c
+typedef struct QueueDefinition {
+	int8_t *pcHead;
+	int8_t *pcTail;
+	int8_t *pcWriteTo;
+
+	union {
+		int8_t *pcReadFrom;
+		UBaseType_t uxRecursiveCallCount;
+	} u;
+
+	List_t xTasksWaitingToSend;
+	List_t xTasksWaitingToReceive;
+
+	volatile UBaseType_t uxMessagesWaiting; (1)
+	UBaseType_t uxLength; (2)
+ 	UBaseType_t uxItemSize; (3)
+
+ 	volatile int8_t cRxLock;
+	volatile int8_t cTxLock;
+
+#if( ( configSUPPORT_STATIC_ALLOCATION == 1 )&&( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
+ 	uint8_t ucStaticallyAllocated;
+#endif
+
+#if ( configUSE_QUEUE_SETS == 1 )
+ 	struct QueueDefinition *pxQueueSetContainer;
+#endif
+
+#if ( configUSE_TRACE_FACILITY == 1 )
+ 	UBaseType_t uxQueueNumber;
+ 	uint8_t ucQueueType;
+#endif
+
+} xQUEUE;
+
+typedef xQUEUE Queue_t;
+```
+
+1. 如果控制块结构体是用于消息队列：`uxMessagesWaiting` 用来记录当前消息队列的消息个数；如果控制块结构体被用于信号量的时候，这个值就表示有效信号量个数，有以下两种情况：
+    - 如果信号量是二值信号量、互斥信号量，这个值是1 则表示有可用信号量，如果是 0 则表示没有可用信号量。
+    - 如果是计数信号量，这个值表示可用的信号量个数，在创建计数信号量的时候会被初始化一个可用信号量个数 `uxInitialCount`，最大不允许超过创建信号量的初始值 `uxMaxCount`。
+2. 如果控制块结构体是用于消息队列：`uxLength` 表示队列的长度，也就是能存放多少消息；如果控制块结构体被用于信号量的时候，`uxLength` 表示最大的信号量可用个数，会有以下两种情况：
+    - 如果信号量是二值信号量、互斥信号量，`uxLength` 最大为1，因为信号量要么是有效的，要么是无效的。
+    - 如果是计数信号量，这个值表示最大的信号量个数，在创建计数信号量的时候将由用户指定这个值`uxMaxCount`。
+3. 如果控制块结构体是用于消息队列：`uxItemSize` 表示单个消息的大小；如果控制块结构体被用于信号量的时候，则无需存储空间，为 0 即可。
+
+### 6.6 常用信号量函数接口讲解
+
+#### 6.6.1 创建信号量函数
+
+##### 1. 创建二值信号量 xSemaphoreCreateBinary()
+
+`xSemaphoreCreateBinary()` 用于创建一个二值信号量，并返回一个句柄。其实二值信号量和互斥量都共同使用一个类型 `SemaphoreHandle_t` 的句柄（.h 文件79 行），该句柄的原型是一个 `void` 型的指针。使用该函数创建的二值信号量是空的， 在使用函数 `xSemaphoreTake()` 获取之前必须先调用函数 `xSemaphoreGive()` 释放后才可以获取。如果是使用老式的函数 `vSemaphoreCreateBinary()` 创建的二值信号量，则为1，在使用之前不用先释放。要想使用该函数必须在 `FreeRTOSConfig.h` 中把宏 `configSUPPORT_DYNAMIC_ALLOCATION` 定义为1，即开启动态内存分配。其实该宏在 `FreeRTOS.h` 中默认定义为1，即所有 FreeRTOS 的对象在创建的时候都默认使用动态内存分配方案。
+
+
+
+
+
+
+
 
 
 
