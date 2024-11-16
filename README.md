@@ -1,8 +1,13 @@
+---
+author: SprInec
+brief: FreeRTOS learning record document.
+---
+
 # FreeRTOS-LEARN
 
-FreeRTOS learning.
-
 > 参考：[野火]《FreeRTOS 内核实现与应用开发实战指南》
+
+
 
 ## 一. 移植 FreeRTOS 到 CubeMX-STM32 工程
 
@@ -1160,6 +1165,8 @@ void assert_failed(uint8_t *file, uint32_t line)
 >  :triangular_flag_on_post: 注意：所用的编译器版本为 AC5，若用 AC6 编译器则存在汇编与 C 混合编写语法上的更改，直接编译会报错，需要针对 `port.c` 及`portmacro.h` 中涉及 `__asm` , `__dsb`, `__isb`的代码进行语法修改。
 
 将程序编译好，验证无误即可。
+
+
 
 ## 二. 创建任务
 
@@ -2443,6 +2450,8 @@ void assert_failed(uint8_t *file, uint32_t line)
 
 程序编译好后下载到开发板验证程序，若两个 LED 灯闪烁，说明创建的单任务正常运行。
 
+
+
 ## 三. FreeRTOS 的启动流程
 
 在目前的 RTOS 中，主要有两种比较流行的启动方式，第三种方式是 RT-Thread 中所采用的那种。
@@ -2986,6 +2995,8 @@ static void AppTaskCreate(void)
     3. 应用任务的优先级比初始任务的优先级低，那创建完后任务不会被执行，如果还有应用任务紧接着创建应用任务，如果应用任务的优先级出现了比初始任务高或者相等的情况，参考 1 和 2 的处理方式，直到所有应用任务创建完成，最后初始任务把自己删除，完成自己的使命。
 
 - 在启动任务调度器的时候，假如启动成功的话，任务就不会有返回了，假如启动没成功，则通过 LR 寄存器指定的地址退出，在创建 `AppTaskCreate` 任务的时候，任务栈对应 LR 寄存器指向是任务退出函数`prvTaskExitError()`，该函数里面是一个死循环，这代表着假如创建任务没成功的话，就会进入死循环，该任务也不会运行。
+
+
 
 ## 四. 任务管理
 
@@ -4418,6 +4429,8 @@ void assert_failed(uint8_t *file, uint32_t line)
 
 ```
 
+
+
 ## 五. 消息队列
 
 ### 5.1 消息队列的基本概念
@@ -5378,6 +5391,8 @@ void assert_failed(uint8_t *file, uint32_t line)
 #endif /* USE_FULL_ASSERT */
 ```
 
+
+
 ## 六. 信号量
 
 回想一下，是否在裸机编程中这样使用过一个变量：用于标记某个事件是否发生，或者标志一下某个东西是否正在被使用，如果是被占用了的或者没发生，我们就不对它进行操作。
@@ -5654,10 +5669,10 @@ typedef xQUEUE Queue_t;
 **原定义：**
 
 ```c
-#define __BSP_LED1_Ficker(__TIME__) ({	__BSP_LED1_Toggle(); 		\
-										vTaskDelay(__TIME__); 	    \
-										__BSP_LED1_Toggle(); 		\
-										vTaskDelay(__TIME__); })
+#define __BSP_LED1_Ficker(__TIME__) ({	__BSP_LED1_Toggle(); 	\
+									vTaskDelay(__TIME__); 	 \
+									__BSP_LED1_Toggle();     \
+									vTaskDelay(__TIME__); })
 ```
 
 **报错：**
