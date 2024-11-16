@@ -1,4 +1,6 @@
-# FreeRTOS-LEARN
+<div align="center">
+	<h1>FreeRTOS Learning Notes</h1>
+</div>
 
 FreeRTOS learning.
 
