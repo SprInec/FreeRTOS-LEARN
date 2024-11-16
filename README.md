@@ -1,9 +1,15 @@
+<<<<<<< HEAD
 ---
 author: SprInec
 brief: FreeRTOS learning record document.
 ---
 
 # FreeRTOS-LEARN
+=======
+<div align="center">
+	<h1>FreeRTOS Learning Notes</h1>
+</div>
+>>>>>>> 053fdd1e2f46fb60166f78217efc5931bd4fcc73
 
 > 参考：[野火]《FreeRTOS 内核实现与应用开发实战指南》
 
