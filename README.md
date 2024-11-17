@@ -4572,7 +4572,7 @@ typedef xQUEUE Queue_t;
 #endif
 ```
 
-![image-20241107160813508](.assets/image-20241107160813508.png)
+<img src=".assets/image-20241107160813508.png" alt="image-20241107160813508" style="zoom:50%;" />
 
 从函数原型中，我们可以看到，创建队列真正使用的函数是 `xQueueGenericCreate()`，消息队列创建函数，顾名思义，就是创建一个队列，与任务一样，都是需要先创建才能使用的东西，FreeRTOS 肯定不知道我们需要什么样的队列，比如队列的长度，消息的大小这些信息都是需要我们自己定义的，FreeRTOS 提供给我们这个创建函数，爱怎么搞都是我们自己来实现，下面是 `xQueueGenericCreate()` 函数源码：
 
@@ -4722,7 +4722,7 @@ taskEXIT_CRITICAL(); //退出临界区
 
 队列就是一个数据结构，用于任务间的数据的传递。每创建一个新的队列都需要为其分配 RAM ， 一部分用于存储队列的状态， 剩下的作为队列的存储区。使用 `xQueueCreateStatic()` 创建队列时，使用的是静态内存分配，所以要想使用该函数必须在 `FreeRTOSConfig.h` 中把 `configSUPPORT_STATIC_ALLOCATION` 定义为 1 来使能。这是个用于使能静态内存分配的宏，需要的内存在程序编译的时候分配好，由用户自己定义，其实创建过程与`xQueueCreate()` 都是差不多的。
 
-![image-20241107163113140](.assets/image-20241107163113140.png)
+<img src=".assets/image-20241107163113140.png" alt="image-20241107163113140" style="zoom:50%;" />
 
 使用示例：
 
@@ -4830,7 +4830,7 @@ int main( void )
 
 `xQueueSend()` 用于向队列尾部发送一个队列消息。消息以拷贝的形式入队，而不是以引用的形式。**该函数绝对不能在中断服务程序里面被调用，中断中必须使用带有中断保护功能的 `xQueueSendFromISR()` 来代替**。`xQueueSend()` 函数的具体说明见下面表格 ，应用实例具体见下面代码。
 
-![image-20241107164117907](.assets/image-20241107164117907.png)
+<img src=".assets/image-20241107164117907.png" alt="image-20241107164117907" style="zoom:50%;" />
 
 ```c
 static void Send_Task(void* parameter)
@@ -4880,7 +4880,7 @@ static void Send_Task(void* parameter)
 
 `xQueueSendFromISR()` 是一个宏，宏展开是调用函数 `xQueueGenericSendFromISR()`。该宏是 `xQueueSend()`的中断保护版本，用于在中断服务程序中向队列尾部发送一个队列消息，等价于 `xQueueSendToBackFromISR()`。`xQueueSendFromISR()`函数具体说明见下面表格，使用实例具体见下面代码。
 
-![image-20241107164625002](.assets/image-20241107164625002.png)
+<img src=".assets/image-20241107164625002.png" alt="image-20241107164625002" style="zoom:50%;" />
 
 ```c
 void vBufferISR( void )
@@ -4919,7 +4919,7 @@ void vBufferISR( void )
 
 `xQueueSendToFron()` 是一个宏， 宏展开也是调用函数 `xQueueGenericSend()` 。`xQueueSendToFront()` 用于向队列队首发送一个消息。消息以拷贝的形式入队，而不是以引用的形式。**该函数绝不能在中断服务程序里面被调用，而是必须使用带有中断保护功能的 `xQueueSendToFrontFromISR ()` 来代替**。`xQueueSendToFron()` 函数的具体说明见下面表格，使用方式与 `xQueueSend()` 函数一致。
 
-![image-20241107164949180](.assets/image-20241107164949180.png)
+<img src=".assets/image-20241107164949180.png" alt="image-20241107164949180" style="zoom:50%;" />
 
 ##### 5.6.4.4 xQueueSendToFrontFromISR()
 
@@ -4931,7 +4931,7 @@ void vBufferISR( void )
 
 `xQueueSendToFrontFromISR()` 是一个宏， 宏展开是调用函数 `xQueueGenericSendFromISR()`。该宏是`xQueueSendToFront()` 的中断保护版本，用于在中断服务程序中向消息队列队首发送一个消息。`xQueueSendToFromISR()`函数具体说明见下面表格，使用方式与 `xQueueSendFromISR()` 函数一致。
 
-![image-20241107165411369](.assets/image-20241107165411369.png)
+<img src=".assets/image-20241107165411369.png" alt="image-20241107165411369" style="zoom:50%;" />
 
 ##### 5.6.4.5 通用消息队列发送函数 xQueueGenericSend() (任务)
 
@@ -4963,7 +4963,7 @@ void vBufferISR( void )
 
 `xQueueReceive()` 是一个宏， 宏展开是调用函数 `xQueueGenericReceive()` 。`xQueueReceive()` 用于从一个队列中接收消息并把消息从队列中删除。接收的消息是以拷贝的形式进行的，所以我们必须提供一个足够大空间的缓冲区。具体能够拷贝多少数据到缓冲区，这个在队列创建的时候已经设定。该函数绝不能在中断服务程序里面被调用，而是必须使用带有中断保护功能的 `xQueueReceiveFromISR ()` 来代替。
 
-![image-20241107170052869](.assets/image-20241107170052869.png)
+<img src=".assets/image-20241107170052869.png" alt="image-20241107170052869" style="zoom:50%;" />
 
 使用示例：
 
@@ -4998,11 +4998,11 @@ static void Receive_Task(void* parameter)
 
 说白了这两个函数只能用于中断，是不带有阻塞机制的，并且是在中断中可以安全调用。
 
-![image-20241107170547001](.assets/image-20241107170547001.png)
+<img src=".assets/image-20241107170547001.png" alt="image-20241107170547001" style="zoom:50%;" />
 
-![image-20241107170559745](.assets/image-20241107170559745.png)
+<img src=".assets/image-20241107170559745.png" alt="image-20241107170559745" style="zoom:50%;" />
 
-![image-20241107170616785](.assets/image-20241107170616785.png)
+<img src=".assets/image-20241107170616785.png" alt="image-20241107170616785" style="zoom:50%;" />
 
 使用示例：
 
@@ -5531,15 +5531,959 @@ typedef xQUEUE Queue_t;
 
 ##### 1. 创建二值信号量 xSemaphoreCreateBinary()
 
-`xSemaphoreCreateBinary()` 用于创建一个二值信号量，并返回一个句柄。其实二值信号量和互斥量都共同使用一个类型 `SemaphoreHandle_t` 的句柄（.h 文件79 行），该句柄的原型是一个 `void` 型的指针。使用该函数创建的二值信号量是空的， 在使用函数 `xSemaphoreTake()` 获取之前必须先调用函数 `xSemaphoreGive()` 释放后才可以获取。如果是使用老式的函数 `vSemaphoreCreateBinary()` 创建的二值信号量，则为1，在使用之前不用先释放。要想使用该函数必须在 `FreeRTOSConfig.h` 中把宏 `configSUPPORT_DYNAMIC_ALLOCATION` 定义为1，即开启动态内存分配。其实该宏在 `FreeRTOS.h` 中默认定义为1，即所有 FreeRTOS 的对象在创建的时候都默认使用动态内存分配方案。
+`xSemaphoreCreateBinary()` 用于创建一个二值信号量，并返回一个句柄。其实二值信号量和互斥量都共同使用一个类型 `SemaphoreHandle_t` 的句柄（.h 文件79 行），该句柄的原型是一个 `void` 型的指针。使用该函数创建的二值信号量是空的， 在使用函数 `xSemaphoreTake()` 获取之前必须先调用函数 `xSemaphoreGive()` 释放后才可以获取。如果是使用老式的函数 `vSemaphoreCreateBinary()` 创建的二值信号量，则为1，在使用之前不用先释放。要想使用该函数必须在 `FreeRTOSConfig.h` 中把宏 `configSUPPORT_DYNAMIC_ALLOCATION` 定义为1，即开启动态内存分配。其实该宏在 `FreeRTOS.h` 中默认定义为 1，即所有 FreeRTOS 的对象在创建的时候都默认使用动态内存分配方案。
+
+`xSemaphoreCreateBinary()` 函数原型：
+
+```c
+#if( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
+
+#define xSemaphoreCreateBinary()         \
+		xQueueGenericCreate(            \
+		( UBaseType_t ) 1,              \
+		semSEMAPHORE_QUEUE_ITEM_LENGTH, \
+		queueQUEUE_TYPE_BINARY_SEMAPHORE )
+#endif
+```
+
+从这个函数原型我们就可以知道二值信号量的创建实际使用的函数就是 `xQueueGenericCreate()` 函数，是不是很熟悉，这就是消息队列的创建使用的函数，但是参数不一样，根据 `xQueueGenericCreate()` 函数原型来讲解一下参数的作用。
+
+`xQueueGenericCreate()` 函数原型：
+
+```c
+QueueHandle_t xQueueGenericCreate(const UBaseType_t uxQueueLength,
+                                  const UBaseType_t uxItemSize,
+                                  const uint8_t ucQueueType )
+```
+
+- 第 5 行，`uxQueueLength` 为 1 表示创建的队列长度为 1，其实用作信号量就表示信号量的最大可用个数，从前面的知识点我们就知道，二值信号量的非空即满，长度为 1 不正是这样子的表示吗。
+
+- 第 6 行，`semSEMAPHORE_QUEUE_ITEM_LENGTH` 其实是一个宏定义，其值为 0，见文知义，它表示创建的消息空间（队列项）大小为 0，因为这个所谓的 “消息队列” 其实并不是用于存储消息的，而是被用作二值信号量，因为我们根本无需关注消息内容是什么，只要知道有没有信号量就行了。
+
+- 第 7 行，`ucQueueType` 表示的是创建消息队列的类型，在 `queue.h` 中有定义，具体见下面代码 ， 现在创建的是二值信号量， 其类型就是 *queueQUEUE_TYPE_BINARY_SEMAPHORE*。
+
+    `ucQueueType` 可选类型：
+
+    ```c
+    #define queueQUEUE_TYPE_BASE ( ( uint8_t ) 0U )
+    #define queueQUEUE_TYPE_SET ( ( uint8_t ) 0U )
+    #define queueQUEUE_TYPE_MUTEX ( ( uint8_t ) 1U )
+    #define queueQUEUE_TYPE_COUNTING_SEMAPHORE ( ( uint8_t ) 2U )
+    #define queueQUEUE_TYPE_BINARY_SEMAPHORE ( ( uint8_t ) 3U )
+    #define queueQUEUE_TYPE_RECURSIVE_MUTEX ( ( uint8_t ) 4U )
+    ```
+
+可能很多人会问了，<u>创建一个没有消息存储空间的队列，信号量用什么表示？</u>其实二值信号量的释放和获取都是通过操作队列结控制块构体成员 `uxMessageWaiting` 来实现的，它表示信号量中当前可用的信号量个数。在信号量创建之后，变量`uxMessageWaiting` 的值为 0，这说明当前信号量处于无效状态，此时的信号量是无法被获取的，在获取信号之前，应先释放一个信号量。后面讲到信号量释放和获取时还会详细介绍。
+
+二值信号量的创建过程具体见 [5.6.1 消息队列创建函数 xQueueCreate()](#5.6.1 消息队列创建函数 xQueueCreate())，因为都是使用一样的函数创建，创建信号量后的示意图具体见下图。
+
+![image-20241117173605660](.assets/image-20241117173605660.png)
+
+##### 2. 创建计数信号量 xSemaphoreCreateCounting()
+
+`xSemaphoreCreateCounting()` 用于创建一个计数信号量。要想使用该函数必须在 `FreeRTOSConfig.h` 中把宏configSUPPORT_DYNAMIC_ALLOCATION 定义为 1，即开启动态内存分配。其实该宏在 `FreeRTOS.h` 中默认定义为 1，即所有 FreeRTOS 的对象在创建的时候都默认使用动态内存分配方案。
+
+其实计数信号量跟二值信号量的创建过程都差不多， 其实也是间接调用 `xQueueGenericCreate()`函数进行创建，`xSemaphoreCreateCounting()` 函数说明具体见下面表格，其函数原型与源码具体见下面代码。
+
+<img src=".assets/image-20241117173921931.png" alt="image-20241117173921931" style="zoom: 50%;" />
+
+创建计数信号量 `xQueueCreateCountingSemaphore()` 源码：
+
+```c
+#if( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
+
+#define xSemaphoreCreateCounting( uxMaxCount, uxInitialCount ) \
+	    xQueueCreateCountingSemaphore((uxMaxCount),(uxInitialCount))
+
+#endif
+
+//下面是函数源码
+#if( ( configUSE_COUNTING_SEMAPHORES == 1 ) && ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
+
+QueueHandle_t xQueueCreateCountingSemaphore(const UBaseType_t uxMaxCount,
+                                            const UBaseType_t uxInitialCount )
+{
+    QueueHandle_t xHandle;
+    
+    configASSERT( uxMaxCount != 0 );
+    configASSERT( uxInitialCount <= uxMaxCount );
+    
+    xHandle = xQueueGenericCreate(uxMaxCount,
+                                  queueSEMAPHORE_QUEUE_ITEM_LENGTH,
+                                  queueQUEUE_TYPE_COUNTING_SEMAPHORE );
+    if ( xHandle != NULL ) {
+        ( ( Queue_t * ) xHandle )->uxMessagesWaiting = uxInitialCount;
+        traceCREATE_COUNTING_SEMAPHORE();
+    }
+    else {
+        traceCREATE_COUNTING_SEMAPHORE_FAILED();
+    }
+    
+    return xHandle;
+}
+#endif
+```
+
+从代码 11~12 行及 19~23 行可以看出，创建计数信号量仍然调用通用队列创建函数 `xQueueGenericCreate()` 来创建一个计数信号量，信号量最大个数由参数 `uxMaxCount` 指定，每个消息空间的大小由宏 queueSEMAPHORE_QUEUE_ITEM_LENGTH 指定，这个宏被定义为0，也就是说创建的计数信号量只有消息队列控制块结构体存储空间而没有消息存储空间， 这一点与二值信号量一致， 创建的信号量类型是计数信号量 queueQUEUE_TYPE_COUNTING_SEMAPHORE。如果创建成功，还会将消息队列控制块中的 `uxMessagesWaiting` 成员变量赋值为用户指定的初始可用信号量个数 `uxInitialCount`， 如果这个值大于 0，则表示此时有 `uxInitialCount` 个计数信号量是可用的，这点与二值信号量的创建不一样，二值信号量在创建成功的时候是无效的（ FreeRTOS 新版源码，旧版源码在创建成功默认是有效的）。
+
+如果我们创建一个最大计数值为 5，并且默认有效的可用信号量个数为 5 的计数信号量，那么计数信号量创建成功的示意图具体见下图。
+
+![image-20241117175331913](.assets/image-20241117175331913.png)
+
+创建二值信号量与计数信号量的使用实例具体见下面代码：
+
+二值信号量创建函数 `xSemaphoreCreateBinary()` 使用实例：
+
+```c
+SemaphoreHandle_t xSemaphore = NULL;
+
+void vATask( void * pvParameters )
+{
+    /* 尝试创建一个信号量 */
+    xSemaphore = xSemaphoreCreateBinary();
+    
+    if ( xSemaphore == NULL ) {
+        /* 内存不足，创建失败 */
+    } else {
+        /* 信号量现在可以使用，句柄存在变量 xSemaphore 中
+           这个时候还不能调用函数 xSemaphoreTake()来获取信号量
+           因为使用 xSemaphoreCreateBinary()函数创建的信号量是空的
+           在第一次获取之前必须先调用函数 xSemaphoreGive()先提交 */
+    }
+}
+```
+
+计数信号量创建函数 `xSemaphoreCreateCounting()` 使用实例：
+
+```c
+void vATask( void * pvParameters )
+{
+    SemaphoreHandle_t xSemaphore;
+    /* 创建一个计数信号量， 用于事件计数 */
+    xSemaphore = xSemaphoreCreateCounting( 5, 5 );
+    
+    if ( xSemaphore != NULL ) {
+        /* 计数信号量创建成功 */
+    }
+}
+```
+
+当然，创建信号量也有静态创建，其实都是差不多的，但是我们一般常使用动态创建，静态创建的我们暂时不讲解。
+
+#### 6.6.2 信号量删除函数 vSemaphoreDelete()
+
+`vSemaphoreDelete()` 用于删除一个信号量，包括二值信号量，计数信号量，互斥量和递归互斥量。如果有任务阻塞在该信号量上，那么不要删除该信号量。
+
+<img src=".assets/image-20241117180058437.png" alt="image-20241117180058437" style="zoom:50%;" />
+
+<img src=".assets/image-20241117180119433.png" alt="image-20241117180119433" style="zoom:50%;" />
+
+删除信号量过程其实就是删除消息队列过程，因为信号量其实就是消息队列，只不过是无法存储消息的队列而已。
+
+`vSemaphoreDelete()` 函数原型：
+
+```c
+#define vSemaphoreDelete( xSemaphore ) \
+        vQueueDelete( ( QueueHandle_t ) ( xSemaphore ) )
+```
+
+#### 6.6.3 信号量释放函数
+
+与消息队列的操作一样，信号量的释放可以在任务、中断中使用，所以需要有不一样的 API 函数在不一样的上下文环境中调用。
+
+在前面的讲解中，我们知道，当信号量有效的时候，任务才能获取信号量，那么，<u>是什么函数使得信号量变得有效？</u>其实有两个方式：一个是在创建的时候进行初始化，将它可用的信号量个数设置一个初始值；在二值信号量中，该初始值的范围是 0~1（旧版本的 FreeRTOS 中创建二值信号量默认是有效的，而新版本则默认是无效），假如初始值为 1 个可用的信号量的话，被申请一次就变得无效了，那就需要我们释放信号量，FreeRTOS 提供了信号量释放函数，每调用一次该函数就释放一个信号量。但是有个问题，<u>能不能一直释放？</u>很显然，这是==不能==的，无论是你的信号量是二值信号量还是计数信号量，都要注意可用信号量的范围，当用作==二值信号量==的时候，==必须确保其可用值在 0~1 范围内==；而用作==计数信号量==的话，其范围是由用户在创建时指定 `uxMaxCount`，其==最大可用信号量不允许超出== `uxMaxCount`，这代表我们不能一直调用信号量释放函数来释放信号量，其实一直调用也是无法释放成功的，在写代码的时候，我们要注意代码的严谨性罢了。
+
+##### 1. xSemaphoreGive()（任务）
+
+`xSemaphoreGive()` 是一个用于释放信号量的宏，真正的实现过程是调用消息队列通用发送函数，`xSemaphoreGive()` 函数原型具体见下面代码。释放的信号量对象必须是已经被创建的，可以用于二值信号量、计数信号量、互斥量的释放，但不能释放由函数 `xSemaphoreCreateRecursiveMutex()` 创建的递归互斥量。此外<u>该函数不能在中断中使用</u>。
+
+`xSemaphoreGive()` 函数原型：
+
+```c
+#define xSemaphoreGive( xSemaphore ) \
+	    xQueueGenericSend( ( QueueHandle_t ) ( xSemaphore ), \
+	    			      NULL, \
+	    			      semGIVE_BLOCK_TIME, \
+	    			      queueSEND_TO_BACK )
+```
+
+从该宏定义可以看出<u>释放信号量实际上是一次入队操作</u>，并且是不允许入队阻塞，因为阻塞时间为 *semGIVE_BLOCK_TIME*，该宏的值为 0。
+
+通过消息队列入队过程分析，我们可以将释放一个信号量的过程简化：如果信号量未满，控制块结构体成员 `uxMessageWaiting` 就会加 1，然后判断是否有阻塞的任务，如果有的话就会恢复阻塞的任务，然后返回成功信息（`pdPASS`）；如果信号量已满，则返回错误代码（`err_QUEUE_FULL`）具体的源码分析过程参考 [5.6 消息队列常用函数讲解](#5.6 消息队列常用函数讲解) 。
+
+`xSemaphoreGive()` 函数使用实例见下面代码：
+
+```c
+static void Send_Task(void* parameter)
+{
+    BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为 pdPASS */
+    while (1) {
+        /* K1 被按下 */
+        if ( Key_Scan(KEY1_GPIO_PORT,KEY1_GPIO_PIN) == KEY_ON ) {
+            xReturn = xSemaphoreGive( BinarySem_Handle );//给出二值信号量
+            if ( xReturn == pdTRUE )
+                printf("BinarySem_Handle 二值信号量释放成功!\r\n");
+            else
+                printf("BinarySem_Handle 二值信号量释放失败!\r\n");
+        }
+        /* K2 被按下 */
+        if ( Key_Scan(KEY2_GPIO_PORT,KEY2_GPIO_PIN) == KEY_ON ) {
+            xReturn = xSemaphoreGive( BinarySem_Handle );//给出二值信号量
+            if ( xReturn == pdTRUE )
+                printf("BinarySem_Handle 二值信号量释放成功!\r\n");
+            else
+                printf("BinarySem_Handle 二值信号量释放失败!\r\n");
+        }
+        vTaskDelay(20);
+    }
+}
+```
+
+##### 2. xSemaphoreGiveFromISR()（中断）
+
+用于释放一个信号量，带中断保护。被释放的信号量可以是二进制信号量和计数信号量。和普通版本的释放信号量 API 函数有些许不同，<u>它不能释放互斥量，这是因为互斥量不可以在中断中使用</u>，互斥量的优先级继承机制只能在任务中起作用，而在中断中毫无意义。带中断保护的信号量释放其实也是一个宏，真正调用的函数是 `xQueueGiveFromISR()`，宏定义如下。
+
+`xSemaphoreGiveFromISR()` 源码：
+
+```c
+#define xSemaphoreGiveFromISR( xSemaphore,                   \
+							pxHigherPriorityTaskWoken )   \
+		xQueueGiveFromISR(( QueueHandle_t )                 \
+						 ( xSemaphore ),                   \
+						 ( pxHigherPriorityTaskWoken ) )
+```
+
+如果可用信号量未满，控制块结构体成员 `uxMessageWaiting` 就会加 1，然后判断是否有阻塞的任务，如果有的话就会恢复阻塞的任务，然后返回成功信息（`pdPASS`），如果恢复的任务优先级比当前任务优先级高，那么在退出中断要进行任务切换一次；如果信号量满，则返回错误代码（`err_QUEUE_FULL`），表示信号量满，`xQueueGiveFromISR()` 源码的实现过程在消息队列章节已经讲解，具体见 [5.6.4.6](#5.6.4.6 消息队列发送函数 xQueueGenericSendFromISR()（中断）) 小节。
+
+一个或者多个任务有可能阻塞在同一个信号量上，调用函数 `xSemaphoreGiveFromISR()`可能会唤醒阻塞在该信号量上的任务，如果被唤醒的任务的优先级大于当前任务的优先级，那么形参 `pxHigherPriorityTaskWoken` 就会被设置为 `pdTRUE`，然后在中断退出前执行一次上下文切换。从 FreeRTOS V7.3.0 版本开始， `pxHigherPriorityTaskWoken` 是一个可选的参数，可以设置为 NULL。
+
+`xSemaphoreGiveFromISR()` 函数使用实例：
+
+```c
+void vTestISR( void )
+{
+    BaseType_t pxHigherPriorityTaskWoken;
+    uint32_t ulReturn;
+    
+    /* 进入临界段，临界段可以嵌套 */
+    ulReturn = taskENTER_CRITICAL_FROM_ISR();
+    
+    /* 判断是否产生中断 */
+    {
+        /* 如果产生中断，清除中断标志位 */
+        
+        // 释放二值信号量，发送接收到新数据标志，供前台程序查询
+        xSemaphoreGiveFromISR(BinarySem_Handle,&
+                              pxHigherPriorityTaskWoken);
+        
+        // 如果需要的话进行一次任务切换，系统会判断是否需要进行切换
+        portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
+    }
+    
+    /* 退出临界段 */
+    taskEXIT_CRITICAL_FROM_ISR( ulReturn );
+}
+```
+
+#### 6.6.4 信号量获取函数
+
+与消息队列的操作一样，信号量的获取可以在任务、中断（中断中使用并不常见）中使用，所以需要有不一样的 API 函数在不一样的上下文环境中调用。
+
+与释放信号量对应的是获取信号量，我们知道，当信号量有效的时候，任务才能获取信号量，当任务获取了某个信号量的时候，该信号量的可用个数就减一，当它减到 0 的时候，任务就无法再获取了，并且获取的任务会进入阻塞态（假如用户指定了阻塞超时时间的话）。如果某个信号量中当前拥有 1 个可用的信号量的话，被获取一次就变得无效了，那么此时另外一个任务获取该信号量的时候，就会无法获取成功，该任务便会进入阻塞态，阻塞时间由用户指定。
+
+##### 1. xSemaphoreTake()（任务）
+
+`xSemaphoreTake()` 函数用于获取信号量，不带中断保护。获取的信号量对象可以是二值信号量、计数信号量和互斥量，但是<u>递归互斥量并不能使用这个 API 函数获取</u>。其实获取信号量是一个宏，真正调用的函数是 `xQueueGenericReceive()`。该宏不能在中断使用，而是必须由具体中断保护功能的 `xQueueReceiveFromISR()` 版本代替。该函数的具体说明见表格：
+
+<img src=".assets/image-20241117184456579.png" alt="image-20241117184456579" style="zoom:50%;" />
+
+<img src=".assets/image-20241117184515828.png" alt="image-20241117184515828" style="zoom:50%;" />
+
+从该宏定义可以看出释放信号量实际上是一次消息出队操作，阻塞时间由用户指定 `xBlockTime`，当有任务试图获取信号量的时候，当且仅当信号量有效的时候，任务才能读获取到信号量。如果信号量无效，在用户指定的阻塞超时时间中，该任务将保持阻塞状态以等待信号量有效。当其它任务或中断释放了有效的信号量，该任务将自动由阻塞态转移为就绪态。当任务等待的时间超过了指定的阻塞时间，即使信号量中还是没有可用信号量，任务也会自动从阻塞态转移为就绪态。
+
+通过前面消息队列出队过程分析，我们可以将获取一个信号量的过程简化：如果有可用信号量，控制块结构体成员 `uxMessageWaiting` 就会减1，然后返回获取成功信息（pdPASS）；如果信号量无效并且阻塞时间为 0，则返回错误代码（errQUEUE_EMPTY）；如果信号量无效并且用户指定了阻塞时间，则任务会因为等待信号量而进入阻塞状态，任务会被挂接到延时列表中。具体的源码分析过程参考 5.6 章节。（此处暂时未讲解互斥信号量）
+
+`xSemaphoreTake()` 函数使用实例具体见下面代码：
+
+```c
+static void Receive_Task(void* parameter)
+{
+    BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
+    while (1) {
+        //获取二值信号量 xSemaphore,没获取到则一直等待
+        xReturn = xSemaphoreTake(BinarySem_Handle,/* 二值信号量句柄 */
+                                 portMAX_DELAY); /* 等待时间 */
+        if (pdTRUE == xReturn)
+            printf("BinarySem_Handle 二值信号量获取成功!\n\n");
+        LED1_TOGGLE;
+    }
+}
+```
+
+##### 2. xSemaphoreTakeFromISR()（中断）
+
+`xSemaphoreTakeFromISR()` 是函数 `xSemaphoreTake()` 的中断版本，用于获取信号量，是一个不带阻塞机制获取信号量的函数，获取对象必须由是已经创建的信号量，信号量类型可以是二值信号量和计数信号量，它与 `xSemaphoreTake()` 函数不同，<u>它不能用于获取互斥量，因为互斥量不可以在中断中使用</u>，并且互斥量特有的优先级继承机制只能在任务中起作用，而在中断中毫无意义。该函数的具体说明见表格：
+
+<img src=".assets/image-20241117185008642.png" alt="image-20241117185008642" style="zoom:50%;" />
+
+### 6.7 信号量实验
+
+#### 6.7.1 二值信号量同步实验
+
+信号量同步实验是在 FreeRTOS 中创建了两个任务，一个是获取信号量任务，一个是释放互斥量任务，两个任务独立运行，获取信号量任务是一直在等待信号量，其等待时间是 `portMAX_DELAY`，等到获取到信号量之后，任务开始执行任务代码，如此反复等待另外任务释放的信号量。
+
+释放信号量任务在检测按键是否按下，如果按下则释放信号量，此时释放信号量会唤醒获取任务，获取任务开始运行，然后形成两个任务间的同步，因为如果没按下按键，那么信号量就不会释放，只有当信号量释放的时候，获取信号量的任务才会被唤醒，如此一来就达到任务与任务的同步，同时程序的运行会在串口打印出相关信息，具体见代码：
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define QUEUE_LEN 4
+#define QUEUE_SIZE 4
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t Receive_Task_Handle = NULL;
+static TaskHandle_t Send_Task_Handle = NULL;
+
+SemaphoreHandle_t BinarySem_Handle = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void AppTaskCreate(void); // 用于创建任务
+
+static void Receive_Task(void *pvParameters); // Reveive_Task 任务实现
+static void Send_Task(void *pvParameters);    // Send_Task 任务实现
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xRetrn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("- programe start!\n");
+
+    xRetrn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                         "AppTaskCreate",
+                         512,
+                         NULL,
+                         1,
+                         &APPCreate_Handle);
+    if (pdPASS == xRetrn)
+        vTaskStartScheduler();
+    else {
+        printf("ERROR: app create task create failed!\n");
+    }
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    // 定义一个创建信息返回值, 默认为 pdPASS
+    BaseType_t xReturn = pdPASS;
+
+    taskENTER_CRITICAL(); // 进入临界区
+
+    /* 创建 BinarySem */
+    BinarySem_Handle = xSemaphoreCreateBinary();
+
+    if (NULL != BinarySem_Handle)
+    {
+        printf("BinarySem_Handle 二值信号量创建成功 !\n");
+    }
+
+    // 创建 Receive Task
+    xReturn = xTaskCreate((TaskFunction_t)Receive_Task,
+                          "Receive Task",
+                          512,
+                          NULL,
+                          4,
+                          &Receive_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("创建 Receive Task 成功!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)Send_Task,
+                          "Send Task",
+                          512,
+                          NULL,
+                          3,
+                          &Send_Task_Handle);
+
+    if (pdPASS == xReturn)
+        printf("创建 Send Task 成功!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void Receive_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdPASS;
+    while(1)
+    {
+        // 获取二值信号量 xSemaphore, 没有则一直等待
+        xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
+        if (xReturn == pdTRUE) {
+            printf("BinarySem_Handle 二值信号量获取成功!\n");
+            __BSP_LED1_Ficker(200);
+        }
+    }
+}
+
+static void Send_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdPASS;
+    while(1)
+    {
+        if (BSP_KEY_Read(0) == BSP_KEY_PRESSED)
+        {
+            // 释放二值信号
+            xReturn = xSemaphoreGive(BinarySem_Handle);
+            if (xReturn == pdTRUE)
+                printf("释放二值信号量成功!\n");
+            else
+                printf("释放二值信号量失败!\n");
+        }
+        vTaskDelay(20);
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+#### 6.7.2 计数信号量实验
+
+计数型信号量实验是模拟停车场工作运行。在创建信号量的时候初始化 5 个可用的信号量，并且创建了两个任务：一个是获取信号量任务，一个是释放信号量任务，两个任务独立运行，获取信号量任务是通过按下 KEY0 按键进行信号量的获取，模拟停车场停车操作，其等待时间是 0，在串口调试助手输出相应信息。
+
+释放信号量任务则是信号量的释放，释放信号量任务也是通过按下 KEY1 按键进行信号量的释放，模拟停车场取车操作，在串口调试助手输出相应信息，实验源码具体见下面代码。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define QUEUE_LEN 4
+#define QUEUE_SIZE 4
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPCreate_Handle = NULL;
+static TaskHandle_t Receive_Task_Handle = NULL;
+static TaskHandle_t Send_Task_Handle = NULL;
+
+SemaphoreHandle_t CountSem_Handle = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void AppTaskCreate(void); // 用于创建任务
+
+static void Receive_Task(void *pvParameters); // Reveive_Task 任务实现
+static void Send_Task(void *pvParameters);    // Send_Task 任务实现
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xRetrn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("- programe start!\n");
+
+    xRetrn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                         "AppTaskCreate",
+                         512,
+                         NULL,
+                         1,
+                         &APPCreate_Handle);
+    if (pdPASS == xRetrn)
+        vTaskStartScheduler();
+    else {
+        printf("ERROR: app create task create failed!\n");
+    }
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    // 定义一个创建信息返回值, 默认为 pdPASS
+    BaseType_t xReturn = pdPASS;
+
+    taskENTER_CRITICAL(); // 进入临界区
+
+    /* 创建 CountSem_Handle */
+    CountSem_Handle = xSemaphoreCreateCounting(5, 5);
+
+    if (NULL != CountSem_Handle)
+        printf("CountSem_Handle 计数信号量创建成功 !\n");
+
+    // 创建 Receive Task
+    xReturn = xTaskCreate((TaskFunction_t)Receive_Task,
+                          "Receive Task",
+                          512,
+                          NULL,
+                          4,
+                          &Receive_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("Create Receive Task 成功!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)Send_Task,
+                          "Send Task",
+                          512,
+                          NULL,
+                          3,
+                          &Send_Task_Handle);
+
+    if (pdPASS == xReturn)
+        printf("Create Send Task 成功!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void Receive_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdTRUE;
+    while(1)
+    {
+        if (BSP_KEY_Read(0) == BSP_KEY_PRESSED)
+        {
+            // 获取二值信号量 xSemaphore, 没有则一直等待
+            xReturn = xSemaphoreTake(CountSem_Handle, 0);
+            if (xReturn == pdTRUE) {
+                printf("CountSem_Handle 计数信号量获取成功!\n");
+                __BSP_LED1_Ficker(200); 
+            }
+            else
+                printf("CountSem_Handle 计数信号量获取失败!\n");
+        }
+    }
+}
+
+static void Send_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdTRUE;
+    while(1)
+    {
+        if (BSP_KEY_Read(1) == BSP_KEY_PRESSED)
+        {
+            // 释放二值信号
+            xReturn = xSemaphoreGive(CountSem_Handle);
+            if (xReturn == pdTRUE)
+                printf("释放计数信号量成功!\n");
+            else
+                printf("释放计数信号量失败!\n");
+        }
+        vTaskDelay(20);
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
 
 
 
+## 七. 互斥量
 
+### 7.1 互斥量基本概念
 
+互斥量又称互斥信号量（本质是信号量），是一种特殊的二值信号量，它<u>和信号量不同的是，它支持==互斥量所有权==、==递归访问==以及==防止优先级翻转==的特性，用于实现对临界资源的独占式处理。</u>任意时刻互斥量的状态只有两种，开锁或闭锁。当互斥量被任务持有时，该互斥量处于闭锁状态，这个任务获得互斥量的所有权。当该任务释放这个互斥量时，该互斥量处于开锁状态，任务失去该互斥量的所有权。当一个任务持有互斥量时，其他任务将不能再对该互斥量进行开锁或持有。<u>持有该互斥量的任务也能够再次获得这个锁而不被挂起，这就是递归访问，也就是递归互斥量的特性</u>，这个特性与一般的信号量有很大的不同，在信号量中，由于已经不存在可用的信号量，<u>任务递归获取信号量时会发生主动挂起任务最终形成死锁</u>。
 
+如果想要用于实现同步（任务之间或者任务与中断之间），二值信号量或许是更好的选择，虽然互斥量也可以用于任务与任务、任务与中断的同步，但是<u>互斥量更多的是用于保护资源的互锁</u>。
 
+用于互锁的互斥量可以充当保护资源的令牌，当一个任务希望访问某个资源时，它必须先获取令牌。当任务使用完资源后，必须还回令牌，以便其它任务可以访问该资源。是不是很熟悉，在我们的二值信号量里面也是一样的，用于保护临界资源，保证多任务的访问井然有序。当任务获取到信号量的时候才能开始使用被保护的资源，使用完就释放信号量，下一个任务才能获取到信号量从而可用使用被保护的资源。但是信号量会导致的另一个潜在问题，那就是任务优先级翻转（具体会在下文讲解）。而 FreeRTOS 提供的<u>互斥量可以通过优先级继承算法，可以降低优先级翻转问题产生的影响</u>，所以，用于<u>临界资源的保护一般建议使用互斥量。</u>
 
+### 7.2 互斥量的优先级继承机制
+
+在 FreeRTOS 操作系统中为了降低优先级翻转问题利用了优先级继承算法。优先级继承算法是指，暂时提高某个占有某种资源的低优先级任务的优先级，使之与在所有等待该资源的任务中优先级最高那个任务的优先级相等，而当这个低优先级任务执行完毕释放该资源时，优先级重新回到初始设定值。因此，<u>继承优先级的任务避免了系统资源被任何中间优先级的任务抢占。</u>
+
+互斥量与二值信号量最大的不同是：==互斥量具有优先级继承机制==，而信号量没有。也就是说，某个临界资源受到一个互斥量保护，如果这个资源正在被一个低优先级任务使用，那么此时的互斥量是闭锁状态，也代表了没有任务能申请到这个互斥量，如果此时一个高优先级任务想要对这个资源进行访问，去申请这个互斥量，那么高优先级任务会因为申请不到互斥量而进入阻塞态，那么系统会将现在持有该互斥量的任务的优先级临时提升到与高优先级任务的优先级相同，这个优先级提升的过程叫做优先级继承。这个优先级继承机制确保高优先级任务进入阻塞状态的时间尽可能短，以及将已经出现的 “优先级翻转” 危害降低到最小。
+
+> [!note]
+>
+> “系统会将现在持有该互斥量的任务的优先级临时提升到与高优先级任务的优先级相同”，目的是为了让原本低优先级的任务能够更加快速的完成，从而解锁互斥量，得以让申请资源的高优先级任务尽快解除阻塞状态。
+
+没有理解？没问题，结合过程示意图再说一遍。我们知道任务的优先级在创建的时候就已经是设置好的，高优先级的任务可以打断低优先级的任务，抢占 CPU 的使用权。但是在很多场合中，某些资源只有一个，当低优先级任务正在占用该资源的时候，即便高优先级任务也只能乖乖的等待低优先级任务使用完该资源后释放资源。这里==高优先级任务无法运行而低优先级任务可以运行的现象称为 “优先级翻转”==。
+
+<u>为什么说优先级翻转在操作系统中是危害很大？</u>因为在我们一开始创造这个系统的时候，我们就已经设置好了任务的优先级了，越重要的任务优先级越高。但是==发生优先级翻转，对我们操作系统是致命的危害，会导致系统的高优先级任务阻塞时间过长==。
+
+举个例子，现在有 3 个任务分别为H 任务（High）、M 任务（Middle）、L 任务（Low），3 个任务的优先级顺序为 H 任务 >M 任务 >L 任务。正常运行的时候 H 任务可以打断 M 任务与 L 任务，M 任务可以打断 L 任务，假设系统中有一个资源被保护了，此时该资源被 L 任务正在使用中，某一刻，H 任务需要使用该资源，但是 L 任务还没使用完，H 任务则因为申请不到资源而进入阻塞态，L 任务继续使用该资源，此时已经出现了 “优先级翻转” 现象，高优先级任务在等着低优先级的任务执行，如果在 L 任务执行的时候刚好 M 任务被唤醒了，由于 M 任务优先级比 L 任务优先级高，那么会打断 L 任务，抢占了 CPU 的使用权，直到 M 任务执行完，再把 CUP 使用权归还给 L 任务，L 任务继续执行，等到执行完毕之后释放该资源，H 任务此时才从阻塞态解除，使用该资源。这个过程，本来是最高优先级的 H 任务，在等待了更低优先级的L 任务与 M 任务，其阻塞的时间是M 任务运行时间 +L 任务运行时间，这只是只有 3 个任务的系统，假如很多个这样子的任务打断最低优先级的任务，那这个系统最高优先级任务岂不是崩溃了，这个现象是绝对不允许出现的，高优先级的任务必须能及时响应。所以，没有优先级继承的情况下，使用资源保护，其危害极大，具体见下图。
+
+<img src=".assets/image-20241117205948942.png" alt="image-20241117205948942" style="zoom: 67%;" />
+
+1. L 任务正在使用某临界资源， H 任务被唤醒，执行 H 任务。但 L 任务并未执行完毕，此时临界资源还未释放。
+2. 这个时刻 H 任务也要对该临界资源进行访问，但 L 任务还未释放资源，由于保护机制，H 任务进入阻塞态，L 任务得以继续运行，此时已经发生了优先级翻转现象。
+3. 某个时刻 M 任务被唤醒，由于 M 任务的优先级高于 L 任务， M 任务抢占了 CPU 的使用权，M 任务开始运行，此时 L 任务尚未执行完，临界资源还没被释放。
+4. M 任务运行结束，归还 CPU 使用权，L 任务继续运行。
+5. L 任务运行结束，释放临界资源，H 任务得以对资源进行访问，H 任务开始运行。
+
+在这过程中，H 任务的等待时间过长，这对系统来说这是很致命的，所以这种情况不允许出现，而互斥量就是用来降低优先级翻转的产生的危害。
 
 
 
