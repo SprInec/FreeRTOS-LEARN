@@ -45,11 +45,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static TaskHandle_t APPCreate_Handle = NULL;
-static TaskHandle_t Receive_Task_Handle = NULL;
-static TaskHandle_t Send_Task_Handle = NULL;
+static TaskHandle_t APPTaskCreate_Handle = NULL;
+static TaskHandle_t LowPriority_Taks_Handle = NULL;
+static TaskHandle_t MidPriority_Task_Handle = NULL;
+static TaskHandle_t HighPriority_Task_Handle = NULL;
 
-SemaphoreHandle_t CountSem_Handle = NULL;
+SemaphoreHandle_t MuxSem_Handle = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,8 +63,9 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 static void AppTaskCreate(void); // 用于创建任务
 
-static void Receive_Task(void *pvParameters); // Reveive_Task 任务实现
-static void Send_Task(void *pvParameters);    // Send_Task 任务实现
+static void LowPriority_Taks(void *pvParameters); 
+static void MidPriority_Task(void *pvParameters);
+static void HighPriority_Task(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -106,19 +108,19 @@ int main(void)
                          512,
                          NULL,
                          1,
-                         &APPCreate_Handle);
+                         &APPTaskCreate_Handle);
     if (pdPASS == xRetrn)
         vTaskStartScheduler();
     else {
         printf("ERROR: app create task create failed!\n");
-    }
+        return -1;
+   }
     /* USER CODE END 2 */
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1)
     {
-
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
@@ -178,73 +180,105 @@ static void AppTaskCreate(void)
 
     taskENTER_CRITICAL(); // 进入临界区
 
-    /* 创建 CountSem_Handle */
-    CountSem_Handle = xSemaphoreCreateCounting(5, 5);
+    /* 创建互斥量 */
+    MuxSem_Handle = xSemaphoreCreateMutex();
+    if (NULL != MuxSem_Handle)
+        printf("MuxSem_Handle 互斥量创建成功 !\n");
 
-    if (NULL != CountSem_Handle)
-        printf("CountSem_Handle 计数信号量创建成功 !\n");
+    // 给出互斥量
+    xReturn = xSemaphoreGive(MuxSem_Handle);
 
-    // 创建 Receive Task
-    xReturn = xTaskCreate((TaskFunction_t)Receive_Task,
-                          "Receive Task",
-                          512,
-                          NULL,
-                          4,
-                          &Receive_Task_Handle);
-    if (pdPASS == xReturn)
-        printf("Create Receive Task 成功!\n");
-
-    xReturn = xTaskCreate((TaskFunction_t)Send_Task,
-                          "Send Task",
+    xReturn = xTaskCreate((TaskFunction_t)LowPriority_Taks,
+                          "LowPriority Task",
                           512,
                           NULL,
                           3,
-                          &Send_Task_Handle);
+                          &LowPriority_Taks_Handle);
+    if (pdPASS == xReturn)
+        printf("Create Lowrienty Task 成功!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)MidPriority_Task,
+                          "MidPriority Task",
+                          512,
+                          NULL,
+                          4,
+                          &MidPriority_Task_Handle);
 
     if (pdPASS == xReturn)
-        printf("Create Send Task 成功!\n");
+        printf("Create Midpriority Task 成功!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)HighPriority_Task,
+                          "HighPriority Task",
+                          512,
+                          NULL,
+                          5,
+                          &HighPriority_Task_Handle);
+    
+    if (pdPASS == xReturn)
+        printf("Create Highpriority Task successfully!\n\n");
 
     vTaskDelete(NULL);
 
     taskEXIT_CRITICAL();
 }
 
-static void Receive_Task(void *pvParameters)
+static void LowPriority_Taks(void *pvParameters)
 {
-    BaseType_t xReturn = pdTRUE;
+    static uint32_t i;
+    BaseType_t xReturn = pdPASS;
     while(1)
     {
-        if (BSP_KEY_Read(0) == BSP_KEY_PRESSED)
+        printf("LowPriority Task GET the MuxSem...\n");
+        xReturn = xSemaphoreTake(MuxSem_Handle,
+                                 portMAX_DELAY);
+        if (xReturn == pdTRUE)
+            printf("LowPriority Task GOT the MuxSem Successfully!\n");
+
+        // 模拟低优先级任务占用信号量
+        for (i = 0; i < 2000000; i++)
         {
-            // 获取二值信号量 xSemaphore, 没有则一直等待
-            xReturn = xSemaphoreTake(CountSem_Handle, 0);
-            if (xReturn == pdTRUE) {
-                printf("CountSem_Handle 计数信号量获取成功!\n");
-                __BSP_LED1_Ficker(200); 
-            }
-            else
-                printf("CountSem_Handle 计数信号量获取失败!\n");
+            taskYIELD();
         }
+
+        // 释放互斥量
+        printf("LowPriority Task release the MuxSem...\n");
+        xReturn = xSemaphoreGive(MuxSem_Handle);
+
+        __BSP_LED1_Ficker(100);
+        vTaskDelay(300);
     }
 }
 
-static void Send_Task(void *pvParameters)
+static void MidPriority_Task(void *pvParameters)
 {
-    BaseType_t xReturn = pdTRUE;
-    while(1)
+    while (1)
     {
-        if (BSP_KEY_Read(1) == BSP_KEY_PRESSED)
-        {
-            // 释放二值信号
-            xReturn = xSemaphoreGive(CountSem_Handle);
-            if (xReturn == pdTRUE)
-                printf("释放计数信号量成功!\n");
-            else
-                printf("释放计数信号量失败!\n");
-        }
-        vTaskDelay(20);
+        printf("MidPriority Task running...\n");
+        vTaskDelay(300);
     }
 }
+
+static void HighPriority_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdTRUE;
+    vTaskDelay(1000);
+    while(1)
+    {
+        printf("HighPriority Task GET the MuxSem...\n");
+        xReturn = xSemaphoreTake(MuxSem_Handle,
+                                 portMAX_DELAY);
+        if (xReturn == pdTRUE)
+            printf("HighPriority Task GOT the MuxSem Successfully!\n");
+
+        // 释放互斥量
+        printf("HighPriority Task release the MuxSem...\n");
+        xReturn = xSemaphoreGive(MuxSem_Handle);
+
+        __BSP_LED2_Ficker(100);
+        vTaskDelay(300);
+    }
+}
+
 /* USER CODE END 4 */
 
 /**
