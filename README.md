@@ -5463,6 +5463,12 @@ void assert_failed(uint8_t *file, uint32_t line)
 
 假如某个时间中断/任务释放了信号量，其过程具体见下图，那么，由于获取无效信号量而进入阻塞态的任务将获得信号量并且恢复为就绪态，其过程具体见下图：
 
+> [!note]
+>
+> 当信号量被释放时，FreeRTOS 会检查是否有等待该信号量的任务。
+>
+> 如果有高优先级任务正在运行，而当前等待信号量的任务优先级较低，那么高优先级任务会继续执行，直到它执行完毕或被挂起，才会检测到信号量的释放并恢复该任务。换句话说，信号量的释放并不会直接让任务立刻进入就绪态，而是要等到当前正在运行的任务（如果它的优先级较高）执行完毕。
+
 ![image-20241107184334677](.assets/image-20241107184334677.png)
 
 ![image-20241107184341244](.assets/image-20241107184341244.png)
@@ -5696,7 +5702,7 @@ void vATask( void * pvParameters )
 
 ##### 1. xSemaphoreGive()（任务）
 
-`xSemaphoreGive()` 是一个用于释放信号量的宏，真正的实现过程是调用消息队列通用发送函数，`xSemaphoreGive()` 函数原型具体见下面代码。释放的信号量对象必须是已经被创建的，可以用于二值信号量、计数信号量、互斥量的释放，但不能释放由函数 `xSemaphoreCreateRecursiveMutex()` 创建的递归互斥量。此外 <u> 该函数不能在中断中使用 </u>。
+`xSemaphoreGive()` 是一个用于释放信号量的宏，真正的实现过程是调用消息队列通用发送函数，`xSemaphoreGive()` 函数原型具体见下面代码。释放的信号量对象必须是已经被创建的，可以用于二值信号量、计数信号量、互斥量的释放，但不能释放由函数 `xSemaphoreCreateRecursiveMutex()` 创建的递归互斥量。此外 <u>该函数不能在中断中使用</u>。
 
 `xSemaphoreGive()` 函数原型：
 
@@ -5708,7 +5714,7 @@ void vATask( void * pvParameters )
 	    			      queueSEND_TO_BACK )
 ```
 
-从该宏定义可以看出 <u> 释放信号量实际上是一次入队操作 </u>，并且是不允许入队阻塞，因为阻塞时间为 *semGIVE_BLOCK_TIME*，该宏的值为 0。
+从该宏定义可以看出 <u>释放信号量实际上是一次入队操作</u>，并且是不允许入队阻塞，因为阻塞时间为 *semGIVE_BLOCK_TIME*，该宏的值为 0。
 
 通过消息队列入队过程分析，我们可以将释放一个信号量的过程简化：如果信号量未满，控制块结构体成员 `uxMessageWaiting` 就会加 1，然后判断是否有阻塞的任务，如果有的话就会恢复阻塞的任务，然后返回成功信息（`pdPASS`）；如果信号量已满，则返回错误代码（`err_QUEUE_FULL`）具体的源码分析过程参考 [5.6 消息队列常用函数讲解](#5.6 消息队列常用函数讲解) 。
 
@@ -6986,7 +6992,7 @@ void vAnotherTask( void * pvParameters )
 
 /* USER CODE BEGIN PV */
 static TaskHandle_t APPTaskCreate_Handle = NULL;
-static TaskHandle_t LowPriority_Taks_Handle = NULL;
+static TaskHandle_t LowPriority_Task_Handle = NULL;
 static TaskHandle_t MidPriority_Task_Handle = NULL;
 static TaskHandle_t HighPriority_Task_Handle = NULL;
 
@@ -7003,7 +7009,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 static void AppTaskCreate(void); // 用于创建任务
 
-static void LowPriority_Taks(void *pvParameters); 
+static void LowPriority_Task(void *pvParameters); 
 static void MidPriority_Task(void *pvParameters);
 static void HighPriority_Task(void *pvParameters);
 /* USER CODE END 0 */
@@ -7128,12 +7134,12 @@ static void AppTaskCreate(void)
     // 给出二值信号量
     xReturn = xSemaphoreGive(BinarySem_Handle);
 
-    xReturn = xTaskCreate((TaskFunction_t)LowPriority_Taks,
+    xReturn = xTaskCreate((TaskFunction_t)LowPriority_Task,
                           "LowPriority Task",
                           512,
                           NULL,
                           3,
-                          &LowPriority_Taks_Handle);
+                          &LowPriority_Task_Handle);
     if (pdPASS == xReturn)
         printf("Create Lowrienty Task 成功!\n");
 
@@ -7724,6 +7730,285 @@ FreeRTOS 的事件用于事件类型的通讯，无数据传输，也就是说�
 ### 8.3 事件运作机制
 
 接收事件时，可以根据感兴趣的参事件类型接收事件的单个或者多个事件类型。事件接收成功后，必须使用 `xClearOnExit` 选项来清除已接收到的事件类型，否则不会清除已接收到的事件，这样就需要用户显式清除事件位。用户可以自定义通过传入参数`xWaitForAllBits` 选择读取模式，是等待所有感兴趣的事件还是等待感兴趣的任意一个事件。
+
+设置事件时，对指定事件写入指定的事件类型，设置事件集合的对应事件位为 1，可以一次同时写多个事件类型，设置事件成功可能会触发任务调度。
+
+清除事件时，根据入参数事件句柄和待清除的事件类型，对事件对应位进行清 0 操作。
+
+事件不与任务相关联，事件相互独立，一个 32 位的变量（事件集合，实际用于表示事件的只有 24 位），用于标识该任务发生的事件类型，其中每一位表示一种事件类型（0 表示该事件类型未发生、1 表示该事件类型已经发生），一共 24 种事件类型具体见下图。
+
+![image-20241124164739600](.assets/image-20241124164739600.png)
+
+事件唤醒机制，当任务因为等待某个或者多个事件发生而进入阻塞态，当事件发生的时候会被唤醒，见下图：
+
+<img src=".assets/image-20241124164758256.png" alt="image-20241124164758256" style="zoom: 67%;" />
+
+任务 1 对事件 3 或事件 5 感兴趣（逻辑或），当发生其中的某一个事件都会被唤醒，并且执行相应操作。而任务 2 对事件 3 与事件 5 感兴趣（逻辑与），当且仅当事件 3 与事件 5 都发生的时候，任务 2 才会被唤醒，如果只有一个其中一个事件发生，那么任务还是会继续等待事件发生。如果接在收事件函数中设置了清除事件位 `xClearOnExit`，那么当任务唤醒后将把事件 3 和事件 5 的事件标志清零，否则事件标志将依然存在。
+
+#### 8.4 事件控制块
+
+事件标志组存储在一个 `EventBits_t` 类型的变量中，该变量在事件组结构体中定义，具体见下面代码。如果宏configUSE_16_BIT_TICKS 定义为 1，那么变量 `uxEventBits` 就是 16 位的， 其中有 8 个位用来存储事件组， 如果宏configUSE_16_BIT_TICKS 定义为 0，那么变量 `uxEventBits` 就是 32 位的，其中有 24 个位用来存储事件组，每一位代表一个事件的发生与否，利用逻辑或、逻辑与等实现不同事件的不同唤醒处理。在STM32 中，`uxEventBits` 是32 位的，所以我们有 24 个位用来实现事件组。除了事件标志组变量之外，FreeRTOS 还使用了一个链表来记录等待事件的任务，所有在等待此事件的任务均会被挂载在等待事件列表 `xTasksWaitingForBits`。
+
+```c
+typedef struct xEventGroupDefinition {
+    EventBits_t uxEventBits;
+    List_t xTasksWaitingForBits;
+    
+#if( configUSE_TRACE_FACILITY == 1 )
+    UBaseType_t uxEventGroupNumber;
+#endif
+    
+#if( ( configSUPPORT_STATIC_ALLOCATION == 1 ) \ && ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
+    uint8_t ucStaticallyAllocated;
+#endif
+} EventGroup_t;
+```
+
+#### 8.5 函数事件接口
+
+##### 8.5.1 事件创建函数 xEventGroupCreate()
+
+`xEventGroupCreate()` 用于创建一个事件组，并返回对应的句柄。要想使用该函数必须在头文件 `FreeRTOSConfig.h` 定义宏configSUPPORT_DYNAMIC_ALLOCATION 为1（在`FreeRTOS.h` 中默认定义为1）且需要把`FreeRTOS/source/event_groups.c` 这个 C 文件添加到工程中。
+
+每一个事件组只需要很少的 RAM 空间来保存事件的发生状态。如果使用函数 `xEventGroupCreate()` 来创建一个事件，那么需要的 RAM 是动态分配的。如果使用函数 `xEventGroupCreateStatic()` 来创建一个事件，那么需要的 RAM 是静态分配的。我们暂时不讲解静态创建函数 `xEventGroupCreateStatic()`。
+
+事件创建函数，顾名思义，就是创建一个事件，与其他内核对象一样，都是需要先创建才能使用的资源，FreeRTOS 给我们提供了一个创建事件的函数 `xEventGroupCreate()`，当创建一个事件时，系统会首先给我们分配事件控制块的内存空间，然后对该事件控制块进行基本的初始化，创建成功返回事件句柄；创建失败返回 NULL。所以，在使用创建函数之前，我们需要先定义有个事件的句柄，事件创建的源码具体见代码。
+
+```
+
+```
+
+事件创建函数的源码都那么简单，其使用更为简单，不过需要我们在使用前定义一个指向事件控制块的指针，也就是常说的事件句柄，当事件创建成功，我们就可以根据我们定义的事件句柄来调用 FreeRTOS 的其他事件函数进行操作，具体见代码。
+
+```c
+static EventGroupHandle_t Event_Handle =NULL;
+/* 创建 Event_Handle */
+Event_Handle = xEventGroupCreate();
+if (NULL != Event_Handle)
+    printf("Event_Handle 事件创建成功!\r\n");
+else
+    /* 创建失败，应为内存空间不足 */
+```
+
+##### 8.5.2 事件删除函数 vEventGroupDelete()
+
+在很多场合，某些事件只用一次的，就好比在事件应用场景说的危险机器的启动，假如各项指标都达到了，并且机器启动成功了，那这个事件之后可能就没用了，那就可以进行销毁了。想要删除事件怎么办？FreeRTOS 给我们提供了一个删除事件的函数——`vEventGroupDelete()`，使用它就能将事件进行删除了。当系统不再使用事件对象时，可以通过删除事件对象控制块来释放系统资源，具体见代码。
+
+```
+
+```
+
+`vEventGroupDelete()` 用于删除由函数 `xEventGroupCreate()` 创建的事件组，只有被创建成功的事件才能被删除，但是需要注意的是<u>该函数不允许在中断里面使用</u>。<u>当事件组被删除之后，阻塞在该事件组上的任务都会被解锁</u>，并向等待事件的任务返回事件组的值为 0，其使用是非常简单的，具体见代码:
+
+```c
+static EventGroupHandle_t Event_Handle =NULL;
+
+/* 创建 Event_Handle */
+Event_Handle = xEventGroupCreate();
+if (NULL != Event_Handle)
+{
+    printf("Event_Handle 事件创建成功!\r\n");
+    
+    /* 创建成功，可以删除 */
+    xEventGroupCreate(Event_Handle);
+} else
+    /* 创建失败，应为内存空间不足 */
+```
+
+##### 8.5.3 事件组置位函数 xEventGroupSetBits()（任务）
+
+`xEventGroupSetBits()` 用于置位事件组中指定的位，当位被置位之后，阻塞在该位上的任务将会被解锁。使用该函数接口时，通过参数指定的事件标志来设定事件的标志位，然后遍历等待在事件对象上的事件等待列表，判断是否有任务的事件激活要求与当前事件对象标志值匹配，如果有，则唤醒该任务。简单来说，就是设置我们自己定义的事件标志位为 1，并且看看有没有任务在等待这个事件，有的话就唤醒它。
+
+注意的是<u>该函数不允许在中断中使用</u>，`xEventGroupSetBits()` 的具体说明见表格，源码具体见代码:
+
+<img src=".assets/image-20241124165837319.png" alt="image-20241124165837319" style="zoom: 50%;" />
+
+<img src=".assets/image-20241124165826632.png" alt="image-20241124165826632" style="zoom:50%;" />
+
+```
+
+```
+
+事件标志组高 8 位的用途
+
+```c
+#if configUSE_16_BIT_TICKS == 1
+#define eventCLEAR_EVENTS_ON_EXIT_BIT 0x0100U
+#define eventUNBLOCKED_DUE_TO_BIT_SET 0x0200U
+#define eventWAIT_FOR_ALL_BITS 0x0400U
+#define eventEVENT_BITS_CONTROL_BYTES 0xff00U
+#else
+#define eventCLEAR_EVENTS_ON_EXIT_BIT 0x01000000UL
+#define eventUNBLOCKED_DUE_TO_BIT_SET 0x02000000UL
+#define eventWAIT_FOR_ALL_BITS 0x04000000UL
+#define eventEVENT_BITS_CONTROL_BYTES 0xff000000UL
+#endif
+```
+
+`xEventGroupSetBits()` 的运用很简单，举个例子，比如我们要记录一个事件的发生，这个事件在事件组的位置是 bit0，当它还未发生的时候，那么事件组 bit0 的值也是 0，当它发生的时候，我们往事件集合 bit0 中写入这个事件，也就是 0x01，那这就表示事件已经发生了，为了便于理解，一般操作我们都是用宏定义来实现 `#define EVENT (0x01 << x)`，`<< x`表示写入事件集合的 bit x ，在使用该函数之前必须先创建事件，具体见代码清:
+
+```c
+#define KEY1_EVENT (0x01 << 0)//设置事件掩码的位0
+#define KEY2_EVENT (0x01 << 1)//设置事件掩码的位1
+
+static EventGroupHandle_t Event_Handle =NULL;
+/* 创建 Event_Handle */
+Event_Handle = xEventGroupCreate();
+if (NULL != Event_Handle)
+    printf("Event_Handle 事件创建成功!\r\n");
+
+static void KEY_Task(void* parameter)
+{
+    /* 任务都是一个无限循环，不能返回 */
+    while (1) {
+        //如果KEY1 被按下
+        if ( Key_Scan(KEY1_GPIO_PORT,KEY1_GPIO_PIN) == KEY_ON ) {
+            printf ( "KEY1 被按下\n" );
+            /* 触发一个事件1 */
+            xEventGroupSetBits(Event_Handle,KEY1_EVENT);
+        }
+        
+        //如果KEY2 被按下
+        if ( Key_Scan(KEY2_GPIO_PORT,KEY2_GPIO_PIN) == KEY_ON ) {
+            printf ( "KEY2 被按下\n" );
+            /* 触发一个事件2 */
+            xEventGroupSetBits(Event_Handle,KEY2_EVENT);
+        }
+        vTaskDelay(20); //每 20ms 扫描一次
+    }
+}
+```
+
+##### 8.5.4 事件组置位函数 xEventGroupSetBitsFromISR()（中断）
+
+`xEventGroupSetBitsFromISR()` 是 `xEventGroupSetBits()` 的中断版本，用于置位事件组中指定的位。置位事件组中的标志位是一个不确定的操作，因为阻塞在事件组的标志位上的任务的个数是不确定的。FreeRTOS 是不允许不确定的操作在中断和临界段中发生的，所以 `xEventGroupSetBitsFromISR()` 给FreeRTOS 的守护任务发送一个消息，让置位事件组的操作在守护任务里面完成，<u>==守护任务==是基于调度锁而非临界段的机制来实现的</u>。
+
+需要注意的地方：正如上文提到的那样，在中断中事件标志的置位是在==守护任务（也叫软件定时器服务任务）==中完成的。因此FreeRTOS 的守护任务与其他任务一样，都是系统调度器根据其优先级进行任务调度的，但<u>守护任务的优先级必须比任何任务的优先级都要高</u>，保证在需要的时候能立即切换任务从而达到快速处理的目的，因为这是在中断中让事件标志位置位，其优先级由`FreeRTOSConfig.h` 中的宏 configTIMER_TASK_PRIORITY 来定义。
+
+其实 `xEventGroupSetBitsFromISR()` 函数真正调用的也是 `xEventGroupSetBits()` 函数，只不过是在守护任务中进行调用的，所以它<u>实际上执行的上下文环境依旧是在任务中</u>。
+
+要想使用该函数， 必须把 configUSE_TIMERS 和 INCLUDE_xTimerPendFunctionCall 这些宏在 `FreeRTOSConfig.h` 中都定义为 1，并且把 `FreeRTOS/source/event_groups.c` 这个 C 文件添加到工程中编译。
+
+`xEventGroupSetBitsFromISR()` 函数的具体说明见表格，其使用实例见代码：
+
+<img src=".assets/image-20241124170553504.png" alt="image-20241124170553504" style="zoom:50%;" />
+
+```c
+#define BIT_0 ( 1 << 0 )
+#define BIT_4 ( 1 << 4 )
+
+/* 假定事件组已经被创建 */
+EventGroupHandle_t xEventGroup;
+
+/* 中断ISR */
+void anInterruptHandler( void )
+{
+    BaseType_t xHigherPriorityTaskWoken, xResult;
+    
+    /* xHigherPriorityTaskWoken 在使用之前必须先初始化为 pdFALSE */
+    xHigherPriorityTaskWoken = pdFALSE;
+    
+    /* 置位事件组 xEventGroup 的的 Bit0 和 Bit4 */
+    xResult = xEventGroupSetBitsFromISR(xEventGroup,
+                                        BIT_0 | BIT_4,
+                                        &xHigherPriorityTaskWoken );
+    
+    /* 信息是否发送成功 */
+    if ( xResult != pdFAIL ) {
+        /* 如果 xHigherPriorityTaskWoken 的值为 pdTRUE则进行一次上下文切换 */
+        portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	}   
+}
+```
+
+##### 8.5.5 等待事件函数 xEventGroupWaitBits()
+
+既然标记了事件的发生，那么我怎么知道他到底有没有发生，这也是需要一个函数来获取事件是否已经发生， FreeRTOS 提供了一个等待指定事件的函数— —`xEventGroupWaitBits()`，通过这个函数，任务可以知道事件标志组中的哪些位，有什么事件发生了，然后通过 “逻辑与”、“逻辑或” 等操作对感兴趣的事件进行获取，并且这个函数实现了等待超时机制，当且仅当任务等待的事件发生时，任务才能获取到事件信息。在这段时间中，如果事件一直没发生，该任务将保持阻塞状态以等待事件发生。<u>当其它任务或中断服务程序往其等待的事件设置对应的标志位，该任务将自动由阻塞态转为就绪态。</u>当任务等待的时间超过了指定的阻塞时间，即使事件还未发生，任务也会自动从阻塞态转移为就绪态。这样子很有效的体现了操作系统的实时性，如果事件正确获取（等待到）则返回对应的事件标志位，由用户判断再做处理，因为在事件超时的时候也会返回一个不能确定的事件值，所以需要判断任务所等待的事件是否真的发生。
+
+`EventGroupWaitBits()` 用于获取事件组中的一个或多个事件发生标志，当要读取的事件标志位没有被置位时任务将进入阻塞等待状态。要想使用该函数必须把 `FreeRTOS/source/event_groups.c` 这个 C 文件添加到工程中。`xEventGroupWaitBits()`的具体说明见表格，源码具体见代码。
+
+<img src=".assets/image-20241124171043187.png" alt="image-20241124171043187" style="zoom:50%;" />
+
+<img src=".assets/image-20241124171059837.png" alt="image-20241124171059837" style="zoom:50%;" />
+
+```
+
+```
+
+下面简单分析处理过程：当用户调用这个函数接口时，系统首先根据用户指定参数和接收选项来判断它要等待的事件是否发生，如果已经发生，则根据参数 `xClearOnExit` 来决定是否清除事件的相应标志位，并且返回事件标志位的值，但是这个值并不是一个稳定的值，所以在等待到对应事件的时候，还需我们判断事件是否与任务需要的一致； 如果事件没有发生，则把任务添加到事件等待列表中，把任务感兴趣的事件标志值和等待选项填用列表项的值来表示，直到事件发生或等待时间超时，事件等待函数`xEventGroupWaitBits()` 具体用法见代码。
+
+```C
+static void LED_Task(void* parameter)
+{
+    EventBits_t r_event; /* 定义一个事件接收变量 */
+    /* 任务都是一个无限循环，不能返回 */
+    while (1) {
+        /****************************************************************
+        * 等待接收事件标志
+        *
+        * 如果 xClearOnExit 设置为 pdTRUE，那么在 xEventGroupWaitBits()返回之前，
+        * 如果满足等待条件（如果函数返回的原因不是超时），那么在事件组中设置
+        * 的 uxBitsToWaitFor 中的任何位都将被清除。
+        * 如果 xClearOnExit 设置为 pdFALSE，
+        * 则在调用 xEventGroupWaitBits()时，不会更改事件组中设置的位。
+        *
+        * xWaitForAllBits 如果 xWaitForAllBits 设置为 pdTRUE，则当 uxBitsToWaitFor 中
+        * 的所有位都设置或指定的块时间到期时，xEventGroupWaitBits()才返回。
+        * 如果 xWaitForAllBits 设置为 pdFALSE，则当设置 uxBitsToWaitFor 中设置的任何
+        * 一个位置 1 或指定的块时间到期时，xEventGroupWaitBits()都会返回。
+        * 阻塞时间由 xTicksToWait 参数指定。
+        *********************************************************/
+        r_event = xEventGroupWaitBits(Event_Handle, /* 事件对象句柄 */
+                                      KEY1_EVENT|KEY2_EVENT,/* 接收任务感兴趣的事件 */
+                                      pdTRUE, /* 退出时清除事件位 */
+                                      pdTRUE, /* 满足感兴趣的所有事件 */
+                                      portMAX_DELAY);/* 指定超时事件,一直等 */
+        if ((r_event & (KEY1_EVENT|KEY2_EVENT)) == (KEY1_EVENT|KEY2_EVENT)) {
+            /* 如果接收完成并且正确 */
+            printf ( "KEY1 与KEY2 都按下\n");
+            LED1_TOGGLE; //LED1 反转
+        } else
+            printf ( "事件错误！\n");
+    }
+}           
+```
+
+##### 8.5.6 xEventGroupClearBits() 与 xEventGroupClearBitsFromISR()
+
+`xEventGroupClearBits()` 与 `xEventGroupClearBitsFromISR()` 都是用于清除事件组指定的位，如果在获取事件的时候没有将对应的标志位清除，那么就需要用这个函数来进行显式清除， `xEventGroupClearBits()` 函数不能在中断中使用，而是由具有中断保护功能的 `xEventGroupClearBitsFromISR()`来代替，中断清除事件标志位的操作在守护任务（也叫定时器服务任务） 里面完成。守护进程的优先级由 `FreeRTOSConfig.h` 中的宏 configTIMER_TASK_PRIORITY 来定义。要想使用该函数必须把 `FreeRTOS/source/event_groups.c` 这个 C 文件添加到工程中。`xEventGroupClearBits()` 的具体说明见表格，应用举例见代码。
+
+<img src=".assets/image-20241124171542595.png" alt="image-20241124171542595" style="zoom: 50%;" />
+
+```c
+#define BIT_0 ( 1 << 0 )
+#define BIT_4 ( 1 << 4 )
+
+void aFunction( EventGroupHandle_t xEventGroup )
+{
+    EventBits_t uxBits;
+
+    /* 清楚事件组的 bit 0 and bit 4 */
+    uxBits = xEventGroupClearBits(xEventGroup,
+                                  BIT_0 | BIT_4 );
+    if ( ( uxBits & ( BIT_0 | BIT_4 ) ) == ( BIT_0 | BIT_4 ) ) {
+        /* 在调用 xEventGroupClearBits()之前 bit0 和 bit4 都置位但是现在是被清除了*/
+    } else if ( ( uxBits & BIT_0 ) != 0 ) {
+        /* 在调用 xEventGroupClearBits()之前 bit0 已经置位但是现在是被清除了*/
+    } else if ( ( uxBits & BIT_4 ) != 0 ) {
+        /* 在调用 xEventGroupClearBits()之前 bit4 已经置位但是现在是被清除了*/
+    } else {
+        /* 在调用 xEventGroupClearBits()之前 bit0 和 bit4 都没被置位 */
+    }
+}
+```
+
+#### 8.6 事件实验
+
+事件标志组实验是在 FreeRTOS 中创建了两个任务，一个是设置事件任务，一个是等待事件任务，两个任务独立运行，设置事件任务通过检测按键的按下情况设置不同的事件标志位，等待事件任务则获取这两个事件标志位，并且判断两个事件是否都发生，如果是则输出相应信息，LED 进行翻转。等待事件任务的等待时间是 portMAX_DELAY，一直在等待事件的发生，等待到事件之后清除对应的事件标记位，具体见代码。
+
+```
+
+```
 
 
 

@@ -33,8 +33,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define QUEUE_LEN 4
-#define QUEUE_SIZE 4
+#define KEY0_EVENT (0x01 << 0)
+#define KEY1_EVENT (0x01 << 1)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,11 +46,10 @@
 
 /* USER CODE BEGIN PV */
 static TaskHandle_t APPTaskCreate_Handle = NULL;
-static TaskHandle_t LowPriority_Taks_Handle = NULL;
-static TaskHandle_t MidPriority_Task_Handle = NULL;
-static TaskHandle_t HighPriority_Task_Handle = NULL;
+static TaskHandle_t LED_Task_Handle = NULL;
+static TaskHandle_t KEY_Task_Handle = NULL;
 
-SemaphoreHandle_t MuxSem_Handle = NULL;
+static EventGroupHandle_t Event_Handle = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,9 +62,8 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 static void AppTaskCreate(void); // 用于创建任务
 
-static void LowPriority_Taks(void *pvParameters); 
-static void MidPriority_Task(void *pvParameters);
-static void HighPriority_Task(void *pvParameters);
+static void LED_Task(void *pvParameters); 
+static void KEY_Task(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -101,7 +99,7 @@ int main(void)
     BSP_LED_Init();
     BSP_KEY_Init();
 
-    printf("- programe start!\n");
+    printf("\n- programe start!\n\n");
 
     xRetrn = xTaskCreate((TaskFunction_t)AppTaskCreate,
                          "AppTaskCreate",
@@ -180,102 +178,66 @@ static void AppTaskCreate(void)
 
     taskENTER_CRITICAL(); // 进入临界区
 
-    /* 创建互斥量 */
-    MuxSem_Handle = xSemaphoreCreateMutex();
-    if (NULL != MuxSem_Handle)
-        printf("MuxSem_Handle 互斥量创建成功 !\n");
-
-    // 给出互斥量
-    xReturn = xSemaphoreGive(MuxSem_Handle);
-
-    xReturn = xTaskCreate((TaskFunction_t)LowPriority_Taks,
-                          "LowPriority Task",
+    xReturn = xTaskCreate((TaskFunction_t)LED_Task,
+                          "LED Task",
                           512,
                           NULL,
                           3,
-                          &LowPriority_Taks_Handle);
+                          &LED_Task_Handle);
     if (pdPASS == xReturn)
-        printf("Create Lowrienty Task 成功!\n");
+        printf("Create LED Task successfully!\n");
 
-    xReturn = xTaskCreate((TaskFunction_t)MidPriority_Task,
-                          "MidPriority Task",
+    xReturn = xTaskCreate((TaskFunction_t)KEY_Task,
+                          "KEY Task",
                           512,
                           NULL,
                           4,
-                          &MidPriority_Task_Handle);
+                          &KEY_Task_Handle);
 
     if (pdPASS == xReturn)
-        printf("Create Midpriority Task 成功!\n");
-
-    xReturn = xTaskCreate((TaskFunction_t)HighPriority_Task,
-                          "HighPriority Task",
-                          512,
-                          NULL,
-                          5,
-                          &HighPriority_Task_Handle);
-    
-    if (pdPASS == xReturn)
-        printf("Create Highpriority Task successfully!\n\n");
+        printf("Create KEY Task successfully!\n\n");
 
     vTaskDelete(NULL);
 
     taskEXIT_CRITICAL();
 }
 
-static void LowPriority_Taks(void *pvParameters)
+static void LED_Task(void *pvParameters)
 {
-    static uint32_t i;
-    BaseType_t xReturn = pdPASS;
+    /* 定义一个事件接收变量*/
+    EventBits_t r_event;
     while(1)
     {
-        printf("LowPriority Task GET the MuxSem...\n");
-        xReturn = xSemaphoreTake(MuxSem_Handle,
-                                 portMAX_DELAY);
-        if (xReturn == pdTRUE)
-            printf("LowPriority Task GOT the MuxSem Successfully!\n");
+        r_event = xEventGroupWaitBits(Event_Handle,
+                                      KEY0_EVENT | KEY1_EVENT, // 接收任务感兴趣的事件
+                                      pdTRUE,    // 退出时清除事件位
+                                      pdTRUE, // 满足感兴趣的所有事件
+                                      portMAX_DELAY);
 
-        // 模拟低优先级任务占用信号量
-        for (i = 0; i < 2000000; i++)
-        {
-            taskYIELD();
+        if (r_event & (KEY0_EVENT | KEY1_EVENT) == (KEY0_EVENT | KEY1_EVENT)) {
+            printf("Both KEY1 and KEY2 are pressed!\n");
+            __BSP_LED1_ON();
         }
-
-        // 释放互斥量
-        printf("LowPriority Task release the MuxSem...\n");
-        xReturn = xSemaphoreGive(MuxSem_Handle);
-
-        __BSP_LED1_Ficker(100);
-        vTaskDelay(300);
+        else
+            printf("Event error!\n");
     }
 }
 
-static void MidPriority_Task(void *pvParameters)
+static void KEY_Task(void *pvParameters)
 {
     while (1)
     {
-        printf("MidPriority Task running...\n");
-        vTaskDelay(300);
-    }
-}
-
-static void HighPriority_Task(void *pvParameters)
-{
-    BaseType_t xReturn = pdTRUE;
-    vTaskDelay(1000);
-    while(1)
-    {
-        printf("HighPriority Task GET the MuxSem...\n");
-        xReturn = xSemaphoreTake(MuxSem_Handle,
-                                 portMAX_DELAY);
-        if (xReturn == pdTRUE)
-            printf("HighPriority Task GOT the MuxSem Successfully!\n");
-
-        // 释放互斥量
-        printf("HighPriority Task release the MuxSem...\n");
-        xReturn = xSemaphoreGive(MuxSem_Handle);
-
-        __BSP_LED2_Ficker(100);
-        vTaskDelay(300);
+        if (BSP_KEY_Read(KEY0) == BSP_KEY_PRESSED)
+        {
+            printf("KEY0 is pressed!\n");
+            xEventGroupSetBits(Event_Handle, KEY0_EVENT);
+        }
+        if (BSP_KEY_Read(KEY1) == BSP_KEY_PRESSED)
+        {
+            printf("KEY1 is pressed!\n");
+            xEventGroupSetBits(Event_Handle, KEY1_EVENT);
+        }
+        vTaskDelay(20);
     }
 }
 

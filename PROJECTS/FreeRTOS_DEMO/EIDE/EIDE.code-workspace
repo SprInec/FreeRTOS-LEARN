@@ -20,7 +20,8 @@
       "*.cxx": "cpp",
       "*.cc": "cpp",
       "bsp_font.H": "cpp",
-      "cstdlib": "c"
+      "cstdlib": "c",
+      "cstdint": "c"
     },
     "[yaml]": {
       "editor.insertSpaces": true,
