@@ -8006,17 +8006,3907 @@ void aFunction( EventGroupHandle_t xEventGroup )
 
 事件标志组实验是在 FreeRTOS 中创建了两个任务，一个是设置事件任务，一个是等待事件任务，两个任务独立运行，设置事件任务通过检测按键的按下情况设置不同的事件标志位，等待事件任务则获取这两个事件标志位，并且判断两个事件是否都发生，如果是则输出相应信息，LED 进行翻转。等待事件任务的等待时间是 portMAX_DELAY，一直在等待事件的发生，等待到事件之后清除对应的事件标记位，具体见代码。
 
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define KEY0_EVENT (0x01 << 0)
+#define KEY1_EVENT (0x01 << 1)
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPTaskCreate_Handle = NULL;
+static TaskHandle_t LED_Task_Handle = NULL;
+static TaskHandle_t KEY_Task_Handle = NULL;
+
+static EventGroupHandle_t Event_Handle = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void AppTaskCreate(void); // 用于创建任务
+
+static void LED_Task(void *pvParameters); 
+static void KEY_Task(void *pvParameters);
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xRetrn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("\n- programe start!\n\n");
+
+    xRetrn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                         "AppTaskCreate",
+                         512,
+                         NULL,
+                         1,
+                         &APPTaskCreate_Handle);
+    if (pdPASS == xRetrn)
+        vTaskStartScheduler();
+    else {
+        printf("ERROR: app create task create failed!\n");
+        return -1;
+   }
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    // 定义一个创建信息返回值, 默认为 pdPASS
+    BaseType_t xReturn = pdPASS;
+
+    taskENTER_CRITICAL(); // 进入临界区
+
+    Event_Handle = xEventGroupCreate();
+    if (Event_Handle != NULL)
+        printf("Event_Handle create successfully!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)LED_Task,
+                          "LED Task",
+                          512,
+                          NULL,
+                          3,
+                          &LED_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("Create LED Task successfully!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)KEY_Task,
+                          "KEY Task",
+                          512,
+                          NULL,
+                          4,
+                          &KEY_Task_Handle);
+
+    if (pdPASS == xReturn)
+        printf("Create KEY Task successfully!\n\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void LED_Task(void *pvParameters)
+{
+    /* 定义一个事件接收变量*/
+    EventBits_t r_event;
+    while(1)
+    {
+        r_event = xEventGroupWaitBits(Event_Handle,
+                                      KEY0_EVENT | KEY1_EVENT, // 接收任务感兴趣的事件
+                                      pdTRUE,    // 退出时清除事件位
+                                      pdTRUE, // 满足感兴趣的所有事件
+                                      portMAX_DELAY);
+
+        if (r_event & (KEY0_EVENT | KEY1_EVENT) == (KEY0_EVENT | KEY1_EVENT)) {
+            printf("Both KEY1 and KEY2 are pressed!\n");
+            __BSP_LED1_Ficker(100);
+        }
+        else
+            printf("Event error!\n");
+    }
+}
+
+static void KEY_Task(void *pvParameters)
+{
+    while (1)
+    {
+        if (BSP_KEY_Read(KEY0) == BSP_KEY_PRESSED)
+        {
+            printf("KEY0 is pressed!\n");
+            xEventGroupSetBits(Event_Handle, KEY0_EVENT);
+        }
+        if (BSP_KEY_Read(KEY1) == BSP_KEY_PRESSED)
+        {
+            printf("KEY1 is pressed!\n");
+            xEventGroupSetBits(Event_Handle, KEY1_EVENT);
+        }
+        vTaskDelay(20);
+    }
+}
+
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+![image-20241125091022361](.assets/image-20241125091022361.png)
+
+## 九. 软件定时器
+
+### 9.1 软件定时器的基本概念
+
+定时器，是指从指定的时刻开始，经过一个指定时间，然后触发一个超时事件，用户可以自定义定时器的周期与频率。类似生活中的闹钟，我们可以设置闹钟每天什么时候响，还能设置响的次数，是响一次还是每天都响。
+
+定时器有**硬件定时器**和**软件定时器**之分：
+
+- **硬件定时器**是芯片本身提供的定时功能。一般是由外部晶振提供给芯片输入时钟，芯片向软件模块提供一组配置寄存器，接受控制输入，到达设定时间值后芯片中断控制器产生时钟中断。硬件定时器的==精度一般很高==，可以达到纳秒级别，并且是==中断触发方式==。
+- **软件定时器**，软件定时器是由==操作系统提供==的一类系统接口，它构建在硬件定时器基础之上，使系统能够提供不受硬件定时器资源限制的定时器服务，它实现的功能与硬件定时器也是类似的。
+
+使用<u>硬件定时器</u>时，每次在定时时间到达之后就会自动触发一个中断，<u>用户在中断中处理信息</u>；而使用<u>软件定时器</u>时，需要我们在创建软件定时器时指定时间到达后要调用的函数（也称超时函数/回调函数，为了统一，下文均用回调函数描述），<u>在回调函数中处理信息</u>。
+
+> [!note]
+>
+> 软件定时器回调函数的上下文是任务，下文所说的定时器均为软件定时器。
+
+软件定时器在被创建之后，当经过设定的时钟计数值后会触发用户定义的回调函数。<u>定时精度与系统时钟的周期有关</u>。一般系统利用 SysTick 作为软件定时器的基础时钟，软件定时器的回调函数类似硬件的中断服务函数，所以，<u>回调函数也要快进快出，而且回调函数中不能有任何阻塞任务运行的情况</u>（软件定时器回调函数的上下文环境是任务），比如 `vTaskDelay()` 以及其它能阻塞任务运行的函数，两次触发回调函数的时间间隔 `xTimerPeriodInTicks` 叫定时器的定时周期。
+
+FreeRTOS 操作系统提供软件定时器功能，软件定时器的使用相当于扩展了定时器的数量，允许创建更多的定时业务。FreeRTOS 软件定时器功能上支持：
+
+- 裁剪：能通过宏关闭软件定时器功能。
+- 软件定时器创建。
+- 软件定时器启动。
+- 软件定时器停止。
+- 软件定时器复位。
+- 软件定时器删除。
+
+FreeRTOS 提供的软件定时器支持单次模式和周期模式，单次模式和周期模式的定时时间到之后都会调用软件定时器的回调函数，用户可以在回调函数中加入要执行的工程代码。
+
+- **单次模式**：当用户创建了定时器并启动了定时器后，定时时间到了，只执行一次回调函数之后就将该定时器进入休眠状态，不再重新执行。
+- **周期模式**：这个定时器会按照设置的定时时间循环执行回调函数，直到用户将定时器删除。
+
+<img src=".assets/image-20241125093127859.png" alt="image-20241125093127859" style="zoom: 80%;" />
+
+FreeRTOS 通过一个 `prvTimerTask` 任务（也叫守护任务 Daemon）管理软定时器，它是在启动调度器时自动创建的，为了满足用户定时需求。`prvTimerTask` 任务会在其执行期间检查用户启动的时间周期溢出的定时器，并调用其回调函数。只有设置 `FreeRTOSConfig.h` 中的宏定义 configUSE_TIMERS 设置为 1 ，将相关代码编译进来，才能正常使用软件定时器相关功能。
+
+### 9.2 软件定时器应用场景
+
+在很多应用中，我们需要一些定时器任务，硬件定时器受硬件的限制，数量上不足以满足用户的实际需求，无法提供更多的定时器，那么可以采用软件定时器来完成，由软件定时器代替硬件定时器任务。但需要注意的是<u>软件定时器的精度是无法和硬件定时器相比的，而且在软件定时器的定时过程中是极有可能被其它中断所打断</u>，因为软件定时器的执行上下文环境是任务。所以，软件定时器更适用于对时间精度要求不高的任务，一些辅助型的任务。
+
+### 9.3 软件定时器的精度
+
+在操作系统中，通常软件定时器以系统节拍周期为计时单位。系统节拍是系统的心跳节拍，表示系统时钟的频率，就类似人的心跳，1s 能跳动多少下，系统节拍配置为 configTICK_RATE_HZ，该宏在 `FreeRTOSConfig.h` 中有定义，默认是1000。那么系统的时钟节拍周期就为 1ms（1s 跳动 1000 下，每一下就为 1ms）。<u>软件定时器的所定时数值必须是这个节拍周期的整数倍</u>，例如节拍周期是 10ms，那么上层软件定时器定时数值只能是10ms，20ms，100ms 等，而不能取值为15ms。由于节拍定义了系统中定时器能够分辨的精确度，系统可以根据实际系统 CPU 的处理能力和实时性需求设置合适的数值，<u>系统节拍周期的值越小，精度越高，但是系统开销也将越大</u>，因为这代表在1 秒中系统进入时钟中断的次数也就越多。
+
+### 9.4 软件定时器的运作机制
+
+软件定时器是可选的系统资源，在创建定时器的时候会分配一块内存空间。当用户创建并启动一个软件定时器时， FreeRTOS 会根据当前系统时间及用户设置的定时确定该定时器唤醒时间，并将该定时器控制块挂入软件定时器列表，FreeRTOS 中采用两个定时器列表维护软件定时器，`pxCurrentTimerList` 与 `pxOverflowTimerList` 是列表指针，在初始化的时候分别指向`xActiveTimerList1` 与 `xActiveTimerList2`，具体见代码：
+
+```c
+PRIVILEGED_DATA static List_t xActiveTimerList1;
+PRIVILEGED_DATA static List_t xActiveTimerList2;
+PRIVILEGED_DATA static List_t *pxCurrentTimerList;
+PRIVILEGED_DATA static List_t *pxOverflowTimerList;
+```
+
+`pxCurrentTimerList`：系统新创建并激活的定时器都会以<u>超时时间==升序==的方式插入</u>到 `pxCurrentTimerList` 列表中。系统在定时器任务中扫描 `pxCurrentTimerList` 中的第一个定时器，看是否已超时，若已经超时了则调用软件定时器回调函数。否则将定时器任务挂起，因为定时时间是升序插入软件定时器列表的，列表中第一个定时器的定时时间都还没到的话，那后面的定时器定时时间自然没到。
+
+`pxOverflowTimerList` 列表是在软件定时器溢出的时候使用，作用与 `pxCurrentTimerList` 一致。
+
+同时，FreeRTOS 的软件定时器还有<u>采用消息队列进行通信</u>，利用 “定时器命令队列” 向软件定时器任务发送一些命令，任务在接收到命令就会去处理命令对应的程序，比如启动定时器，停止定时器等。假如定时器任务处于阻塞状态，我们又需要马上再添加一个软件定时器的话，就是采用这种消息队列命令的方式进行添加，才能唤醒处于等待状态的定时器任务，并且在任务中将新添加的软件定时器添加到软件定时器列表中，所以，在定时器启动函数中，FreeRTOS 是采用队列的方式发送一个消息给软件定时器任务，任务被唤醒从而执行接收到的命令。
+
+例如：系统当前时间 `xTimeNow` 值为 0，在当前系统中已经创建并启动了 1 个定时器 `Timer1`；系统继续运行，当系统的时间`xTimeNow` 为20 的时候，用户创建并且启动一个定时时间为 100 的定时器 `Timer2`，此时 `Timer2` 的溢出时间 `xTicksToWait` 就为定时时间 + 系统当前时间（100+20=120），然后将 `Timer2` 按 `xTicksToWait` 升序插入软件定时器列表中；假设当前系统时间 `xTimeNow` 为 40 的时候，用户创建并且启动了一个定时时间为 50 的定时器 `Timer3` ， 那么此时`Timer3` 的溢出时间 `xTicksToWait` 就为 40+50=90 ， 同样安装 `xTicksToWait` 的数值升序插入软件定时器列表中，在定时器链表中插入过程具体见图。同理创建并且启动在已有的两个定时器中间的定时器也是一样的，具体见图：
+
+> [!note]
+>
+> `xTimeNow` 其实是一个局部变量，是根据 `xTaskGetTickCount()` 函数获取的，实际它的值就是全局变量 `xTickCount` 的值，下文都采用它表示当前系统时间。
+
+<img src=".assets/image-20241125094330912.png" alt="image-20241125094330912" style="zoom:120%;" />
+
+<img src=".assets/image-20241125100248141.png" alt="image-20241125100248141" style="zoom:120%;" />
+
+那么系统如何处理软件定时器列表？系统在不断运行，而 `xTimeNow`（`xTickCount`）随着 SysTick 的触发一直在增长（每一次硬件定时器中断来临，`xTimeNow` 变量会加 1），在软件定时器任务运行的时候会获取下一个要唤醒的定时器，比较当前系统时间 `xTimeNow` 是否大于或等于下一个定时器唤醒时间 `xTicksToWait`，若大于则表示已经超时，定时器任务将会调用对应定时器的回调函数，否则将软件定时器任务挂起，直至下一个要唤醒的软件定时器时间到来或者接收到命令消息。以上图为例，讲解软件定时器调用回调函数的过程，在创建定 `Timer1` 并且启动后，假如系统经过了 50 个 `tick`，`xTimeNow` 从 0 增长到50，与 `Timer1` 的 `xTicksToWait` 值相等， 这时会触发与 `Timer1` 对应的回调函数，从而转到回调函数中执行用户代码，同时将 `Timer1` 从软件定时器列表删除，如果软件定时器是周期性的，那么系统会根据 `Timer1` 下一次唤醒时间重新将 `Timer1` 添加到软件定时器列表中，按照 `xTicksToWait` 的升序进行排列。同理，在 `xTimeNow=40` 的时候创建的 `Timer3`，在经过 130 个 `tick` 后（此时系统时间 `xTimeNow` 是 40，130 个 `tick` 就是系统时间 `xTimeNow` 为170 的时候），与 `Timer3` 定时器对应的回调函数会被触发，接着将 `Timer3` 从软件定时器列表中删除，如果是周期性的定时器，还会按照 `xTicksToWait` 升序重新添加到软件定时器列表中。
+
+使用软件定时器时候要注意以下几点：
+
+- 软件定时器的回调函数中应==快进快出==，绝对不允许使用任何可能引软件定时器起任务挂起或者阻塞的 API 接口，在回调函数中也绝对不允许出现死循环。
+- 软件定时器使用了系统的一个队列和一个任务资源，软件定时器任务的优先级默认为 configTIMER_TASK_PRIORITY，为了更好响应，<u>该优先级应设置为所有任务中最高的优先级</u>。
+- 创建单次软件定时器，该定时器超时执行完回调函数后，系统会自动删除该软件定时器，并回收资源。
+- 定时器任务的堆栈大小默认为 configTIMER_TASK_STACK_DEPTH 个字节。
+
+### 9.5 软件定时器控制块
+
+软件定时器虽然不属于内核资源，但是也是 FreeRTOS 核心组成部分，是一个可以裁剪的功能模块，同样在系统中由一个控制块管理其相关信息，软件定时器的控制块中包含没用过创建的软件定时器基本信息， 在使用定时器前我们需要通过 `xTimerCreate()/xTimerCreateStatic()` 函数创建一个软件定时器，在函数中，FreeRTOS 将向系统管理的内存申请一块软件定时器控制块大小的内存用于保存定时器的信息，下面来看看软件定时器控制块的成员变量，具体见代码：
+
+```c
+typedef struct tmrTimerControl {
+    const char *pcTimerName;
+    ListItem_t xTimerListItem;
+    TickType_t xTimerPeriodInTicks;
+    UBaseType_t uxAutoReload;
+    void *pvTimerID;
+    TimerCallbackFunction_t pxCallbackFunction;
+#if( configUSE_TRACE_FACILITY == 1 )
+    UBaseType_t uxTimerNumber;
+#endif
+    
+#if( ( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
+    uint8_t ucStaticallyAllocated;
+#endif
+} xTIMER;
+
+typedef xTIMER Timer_t;
+```
+
+- 第 2 行，软件定时器名字，这个名字一般用于调试的，RTOS 使用定时器是通过其句柄，并不是使用其名字。
+- 第 3 行，软件定时器列表项，用于插入定时器列表。
+- 第 4 行，软件定时器的周期，单位为系统节拍周期（即 `tick`） ，`pdMS_TO_TICKS()` 可以把时间单位从 ms 转换为系统节拍周期。
+- 第 5 行，软件定时器是否自动重置，如果该值为 pdFalse，那么创建的软件定时器工作模式是单次模式，否则为周期模式。
+- 第 6 行，软件定时器 ID，数字形式。该 ID 典型的用法是当一个回调函数分配给一个或者多个软件定时器时，在回调函数里面根据 ID 号来处理不同的软件定时器。
+- 第 7 行，软件定时器的回调函数，当定时时间到达的时候就会调用这个函数。
+- 第 13 行，标记定时器使用的内存，删除时判断是否需要释放内存。
+
+### 9.6 软件定时器函数接口讲解
+
+软件定时器的功能是在定时器任务（或者叫定时器守护任务）中实现的。软件定时器的很多 API 函数通过一个名字叫 “定时器命令队列” 的队列来给定时器守护任务发送命令。该定时器命令队列由 RTOS 内核提供，且应用程序不能够直接访问，其消息队列的长度由宏 configTIMER_QUEUE_LENGTH 定义，下面就讲解一些常用的软件定时器函数接口。
+
+#### 9.6.1 软件定时器创建函数 xTimerCreate()
+
+软件定时器与 FreeRTOS 内核其他资源一样，需要创建才允许使用的，FreeRTOS 为我们提供了两种创建方式，一种是动态创建软件定时器 `xTimerCreate()`，另一种是静态创建方式 `xTimerCreateStatic()`，因为创建过程基本差不多，所以在这里我们只讲解动态创建方式。
+
+`xTimerCreate()` 用于创建一个软件定时器，并返回一个句柄。要想使用该函数函数必须在头文件 `FreeRTOSConfig.h` 中把宏 configUSE_TIMERS 和 configSUPPORT_DYNAMIC_ALLOCATION 均定义为 1（configSUPPORT_DYNAMIC_ALLOCATION 在 `FreeRTOS.h` 中默认定义为 1），并且需要把 `FreeRTOS/source/times.c` 这个 C 文件添加到工程中。
+
+每一个软件定时器只需要很少的 RAM 空间来保存其的状态。如果使用函数 `xTimeCreate()` 来创建一个软件定时器，那么需要的 RAM 是动态分配的。如果使用函数 `xTimeCreateStatic()` 来创建一个事件组，那么需要的 RAM是静态分配的软件定时器在创建成功后是处于休眠状态的，可以使用 `xTimerStart()`、`xTimerReset()`、`xTimerStartFromISR()` 、`xTimerResetFromISR()` 、 `xTimerChangePeriod()` 和 `xTimerChangePeriodFromISR()` 这些函数将其状态转换为活跃态。
+
+`xTimerCreate()` 函数源码具体见代码：
+
 ```
 
 ```
 
+`xTimerCreate()` 使用实例：
+
+```c
+static TimerHandle_t Swtmr1_Handle =NULL; /* 软件定时器句柄 */
+static TimerHandle_t Swtmr2_Handle =NULL; /* 软件定时器句柄 */
+
+/* 周期模式的软件定时器 1,定时器周期 1000(tick) */
+Swtmr1_Handle=xTimerCreate((const char*)"AutoReloadTimer",
+                           (TickType_t)1000,       /* 定时器周期 1000(tick) */
+                           (UBaseType_t)pdTRUE,    /* 周期模式 */
+                           (void* )1,              /* 为每个计时器分配一个索引的唯一ID */
+                           (TimerCallbackFunction_t)Swtmr1_Callback); /* 回调函数 */
+if (Swtmr1_Handle != NULL)
+{
+    /***********************************************************************************
+     * xTicksToWait:如果在调用 xTimerStart()时队列已满，则以 tick 为单位指定调用任务应保持
+     * 在 Blocked(阻塞)状态以等待 start 命令成功发送到 timer 命令队列的时间。
+     * 如果在启动调度程序之前调用 xTimerStart()，则忽略 xTicksToWait。在这里设置等待时间为 0.
+     ***********************************************************************************/
+    xTimerStart(Swtmr1_Handle,0); //开启周期定时器
+}
+
+/* 单次模式的软件定时器 2,定时器周期 5000(tick) */
+Swtmr2_Handle=xTimerCreate((const char* )"OneShotTimer",
+                           (TickType_t)5000,         /* 定时器周期 5000(tick) */
+                           (UBaseType_t )pdFALSE,    /* 单次模式 */
+                           (void*)2,                 /* 为每个计时器分配一个索引的唯一ID */
+                           (TimerCallbackFunction_t)Swtmr2_Callback);
+if (Swtmr2_Handle != NULL)
+    xTimerStart(Swtmr2_Handle, 0); // 开启单次定时器
+
+static void Swtmr1_Callback(void* parameter)
+{
+    /* 软件定时器的回调函数，用户自己实现 */
+}
+
+static void Swtmr2_Callback(void* parameter)
+{
+    /* 软件定时器的回调函数，用户自己实现 */
+}
+```
+
+#### 9.6.2 软件定时器启动函数
+
+##### 1. xTimerStart()
+
+`xTimerStart()` 如果是认真看上面 `xTimerCreate()` 函数使用实例的同学应该就发现了，这个软件定时器启动函数 `xTimerStart()` 在上面的实例中有用到过，前一小节已经说明了，<u>软件定时器在创建完成的时候是处于休眠状态的</u>，需要用FreeRTOS 的相关函数将软件定时器活动起来，而 `xTimerStart()` 函数就是可以让处于休眠的定时器开始工作。
+
+我们知道，在系统开始运行的时候，系统会帮我们自动创建一个软件定时器任务（ `prvTimerTask` ），在这个任务中，如果暂时没有运行中的定时器，任务会进入阻塞态等待命令，而我们的启动函数就是通过 “定时器命令队列” 向定时器任务发送一个启动命令，定时器任务获得命令就解除阻塞，然后执行启动软件定时器命令。下面来看看 `xTimerStart()`是怎么让定时器工作的吧，其源码具体如下。
+
+```c
+#define xTimerStart( xTimer, xTicksToWait )           \
+        xTimerGenericCommand( ( xTimer ),             \ // 要操作的软件定时器句柄
+                             tmrCOMMAND_START,        \ // 软件定时器启动命令
+                             ( xTaskGetTickCount() ), \ // 获取当前系统时间
+                             NULL,                    \ // 该参数在中断中发送命令才起作用。
+                             ( xTicksToWait ) )         // 用户指定超时阻塞时间
+```
+
+`xTimerStart()` 函数就是一个宏定义，真正起作用的是 `xTimerGenericCommand()` 函数。
+
+> [!caution]
+>
+> 如果在 FreeRTOS 调度器开启之前调用 `xTimerStart()`，形参将不起作用。
+
+```
+
+```
+
+软件定时器启动函数的使用很简单，在创建一个软件定时器完成后，就可以调用该函数启动定时器了。
+
+##### 2. xTimerStartFromISR()
+
+当然除在任务启动软件定时器之外， 还有在中断中启动软件定时器的函数 `xTimerStartFromISR()`。`xTimerStartFromISR()` 是函数 `xTimerStart()` 的中断版本，用于启动一个先前由函数 `xTimerCreate() / xTimerCreateStatic()` 创建的软件定时器。该函数的具体说明见下面表格，使用实例具体见下面代码。
+
+<img src=".assets/image-20241125113208216.png" alt="image-20241125113208216" style="zoom:50%;" />
+
+<img src=".assets/image-20241125113223098.png" alt="image-20241125113223098" style="zoom: 50%;" />
+
+`xTimerStartFromISR()` 函数应用举例：
+
+```c
+/** 
+ * 这个方案假定软件定时器 xBacklightTimer 已经创建，定时周期为 5s，执行次数为一次，即定时时间到了之后就进入休眠态。
+ * 程序说明：当按键按下，打开液晶背光，启动软件定时器，5s 时间到，关掉液晶背光
+ */
+ /* 软件定时器回调函数 */
+ void vBacklightTimerCallback( TimerHandle_t pxTimer )
+ {
+ 	/* 关掉液晶背光 */
+     vSetBacklightState( BACKLIGHT_OFF );
+ }
+
+/* 按键中断服务程序 */
+void vKeyPressEventInterruptHandler( void )
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    
+    /* 确保液晶背光已经打开 */
+    vSetBacklightState( BACKLIGHT_ON );
+    
+    /* 启动软件定时器 */
+    if ( xTimerStartFromISR( xBacklightTimer, &xHigherPriorityTaskWoken ) != pdPASS ) {
+        /* 软件定时器开启命令没有成功执行 */
+    }
+    
+    /* ...执行其他的按键相关的功能代码 */
+    
+    if ( xHigherPriorityTaskWoken != pdFALSE ) {
+        /* 执行上下文切换 */
+    }
+}
+```
+
+#### 9.6.3 软件定时器停止函数
+
+##### 1. xTimerStop()
+
+`xTimerStop()` 用于停止一个已经启动的软件定时器，该函数的实现也是通过 “定时器命令队列” 发送一个停止命令给软件定时器任务，从而唤醒软件定时器任务去将定时器停止。<u>要想使函数 `xTimerStop()` 必须在头文件 `FreeRTOSConfig.h` 中把宏 configUSE_TIMERS 定义为 1</u>。该函数的具体说明见下面表格：
+
+<img src=".assets/image-20241125113802430.png" alt="image-20241125113802430" style="zoom:50%;" />
+
+软件定时器停止函数的使用实例很简单，在使用该函数前请确认定时器已经开启，具体见下面代码：
+
+```c
+static TimerHandle_t Swtmr1_Handle =NULL; /* 软件定时器句柄 */
+
+/* 周期模式的软件定时器 1,定时器周期 1000(tick) */
+Swtmr1_Handle=xTimerCreate((const char* )"AutoReloadTimer",
+                           (TickType_t )1000,      /* 定时器周期 1000(tick) */
+                           (UBaseType_t )pdTRUE,   /* 周期模式 */
+                           (void*)1,               /* 为每个计时器分配一个索引的唯一ID */
+                           (TimerCallbackFunction_t)Swtmr1_Callback); /* 回调函数 */
+
+if (Swtmr1_Handle != NULL)
+{
+    xTimerStart(Swtmr1_Handle,0); //开启周期定时器
+}
+
+static void test_task(void* parameter)
+{
+    while (1) {
+        /* 用户自己实现任务代码 */
+        xTimerStop(Swtmr1_Handle,0); //停止定时器
+    }
+}
+```
+
+##### 2. xTimerStopFromISR()
+
+`xTimerStopFromISR()` 是函数 `xTimerStop()` 的中断版本，用于停止一个正在运行的软件定时器，让其进入休眠态，实现过程也是通过 “定时器命令队列” 向软件定时器任务发送停止命令。该函数的具体说明见下面表格，应用举例见下面代码。
+
+<img src=".assets/image-20241125114157915.png" alt="image-20241125114157915" style="zoom:50%;" />
+
+<img src=".assets/image-20241125114211014.png" alt="image-20241125114211014" style="zoom:50%;" />
+
+`xTimerStopFromISR()` 函数应用举例：
+
+```c
+/* 这个方案假定软件定时器 xTimer 已经创建且启动。当中断发生时，停止软件定时器 */
+
+/* 停止软件定时器的中断服务函数 */
+void vAnExampleInterruptServiceRoutine( void )
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    
+    if (xTimerStopFromISR(xTimer,&xHigherPriorityTaskWoken)!=pdPASS ) {
+        /* 软件定时器停止命令没有成功执行 */
+    }
+    
+    if ( xHigherPriorityTaskWoken != pdFALSE ) {
+        /* 执行上下文切换 */
+    }
+}
+```
+
+#### 9.6.4 软件定时器任务
+
+我们知道，软件定时器回调函数运行的上下文环境是任务，那么软件定时器任务是在干什么的呢？如何创建的呢？下面一步步来分析软件定时器的工作过程。
+
+软件定时器任务是在系统开始调度（`vTaskStartScheduler()` 函数）的时候就被创建的，前提是将宏定义 configUSE_TIMERS 开启， 具体见下面代码， 在 `xTimerCreateTimerTask()`函数里面就是创建了一个软件定时器任务，就跟我们创建任务一样，支持动态与静态创建，我们暂时看动态创建的即可，具体见下面代码：
+
+`vTaskStartScheduler()` 函数里面的创建定时器函数（已删减）
+
+```c
+void vTaskStartScheduler( void )
+{
+#if ( configUSE_TIMERS == 1 )
+    {
+        if ( xReturn == pdPASS )
+        {
+            xReturn = xTimerCreateTimerTask();
+        }
+        else 
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+    }
+#endif /* configUSE_TIMERS */
+}
+```
+
+`xTimerCreateTimerTask()` 源码：
+
+```
+
+```
+
+软件定时器是一个任务，在下一个定时器到了之前的这段时间，系统要把任务状态转移为阻塞态，让其他的任务能正常运行，这样子就使得系统的资源能充分利用，`prvProcessTimerOrBlockTask()` 源码具体见下面代码：
+
+```
+
+```
+
+以上就是软件定时器任务中的 `prvProcessTimerOrBlockTask()` 函数执行的代码，这样子看来，<u>软件定时器任务大多数时间都处于阻塞状态的</u>，而且一般在 FreeRTOS 中，软件定时器任务一般设置为所有任务中最高优先级，这样一来，定时器的时间一到，就会马上到定时器任务中执行对应的回调函数。
+
+其实处理这些软件定时器命令是很简单的，当任务获取到命令消息的时候，会先移除对应的定时器，无论是什么原因，然后就根据命令去处理对应定时器的操作即可。
+
+#### 9.6.5 软件定时器删除函数 xTimerDelete()
+
+`xTimerDelete()` 用于删除一个已经被创建成功的软件定时器，删除之后就无法使用该定时器，并且定时器相应的资源也会被系统回收释放。要想使函数 `xTimerStop()` 必须在头文件 `FreeRTOSConfig.h` 中把宏 configUSE_TIMERS 定义为 1，该函数的具体说明见表格:
+
+<img src=".assets/image-20241125115001661.png" alt="image-20241125115001661" style="zoom:50%;" />
+
+从软件定时器删除函数 `xTimerDelete()` 的原型可以看出，删除一个软件定时器也是在软件定时器任务中删除，调用`xTimerDelete()` 将删除软件定时器的命令发送给软件定时器任务，软件定时器任务在接收到删除的命令之后就进行删除操作，该函数的使用方法很简单，具体见代码：
+
+```c
+static TimerHandle_t Swtmr1_Handle =NULL; /* 软件定时器句柄 */
+
+/* 周期模式的软件定时器 1,定时器周期 1000(tick) */
+Swtmr1_Handle=xTimerCreate((const char* )"AutoReloadTimer",
+                           (TickType_t )1000,       /* 定时器周期 1000(tick) */
+                           (UBaseType_t)pdTRUE,     /* 周期模式 */
+                           (void* )1,               /* 为每个计时器分配一个索引的唯一 ID */
+                           (TimerCallbackFunction_t)Swtmr1_Callback); /* 回调函数 */
+
+if (Swtmr1_Handle != NULL)
+{
+    xTimerStart(Swtmr1_Handle,0); //开启周期定时器
+}
+
+static void test_task(void* parameter)
+{
+    while (1) {
+        /* 用户自己实现任务代码 */
+        xTimerDelete(Swtmr1_Handle,0); //删除软件定时器
+    }
+    
+}
+```
+
+### 9.7 软件定时器实验
+
+软件定时器实验是在 FreeRTOS 中创建了两个软件定时器，其中一个软件定时器是单次模式，5000 个 `tick` 调用一次回调函数，另一个软件定时器是周期模式，1000 个 `tick` 调用一次回调函数，在回调函数中输出相关信息，具体见下面代码：
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define KEY0_EVENT (0x01 << 0)
+#define KEY1_EVENT (0x01 << 1)
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t APPTaskCreate_Handle = NULL;
+
+static TimerHandle_t Swtmr1_Handle = NULL;
+static TimerHandle_t Swtmr2_Handle = NULL;
+
+static uint32_t TmrCb_Count1 = 0; // 定时器 1 回调次数
+static uint32_t TmrCb_Count2 = 0; // 定时器 2 回调次数
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+static void AppTaskCreate(void); // 用于创建任务
+
+static void Swtmr1_Callback(void *pvParameters); 
+static void Swtmr2_Callback(void *pvParameters);
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xRetrn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("\n- programe start!\n\n");
+
+    xRetrn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                         "AppTaskCreate",
+                         512,
+                         NULL,
+                         1,
+                         &APPTaskCreate_Handle);
+    if (pdPASS == xRetrn)
+        vTaskStartScheduler();
+    else {
+        printf("ERROR: app create task create failed!\n");
+        return -1;
+   }
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    taskENTER_CRITICAL(); // 进入临界区
+
+    Swtmr1_Handle = xTimerCreate((const char *)"AutoRelodTimer",
+                                 pdMS_TO_TICKS(1000),
+                                 pdTRUE,
+                                 (void *)1, 
+                                 Swtmr1_Callback);
+
+    if (Swtmr1_Handle != NULL)
+        xTimerStart(Swtmr1_Handle, 0);
+
+    Swtmr2_Handle = xTimerCreate((const char *)"AutoRelodTimer2",
+                                 pdMS_TO_TICKS(5000),
+                                 pdFALSE,
+                                 (void *)2,
+                                 Swtmr2_Callback);
+    
+    if (Swtmr2_Handle != NULL)
+        xTimerStart(Swtmr2_Handle, 0);
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void Swtmr1_Callback(void *pvParameters)
+{
+    TickType_t tick_num1;
+
+    TmrCb_Count1++;
+    tick_num1 = xTaskGetTickCount(); // 获取当前任务的 tick 值
+
+    __BSP_LED1_Toggle();
+    printf("Swtmr1_Callback: %d, tick_num1: %d\n", TmrCb_Count1, tick_num1);
+}
+
+static void Swtmr2_Callback(void *pvParameters)
+{
+    TickType_t tick_num2;
+
+    TmrCb_Count2++;
+    tick_num2 = xTaskGetTickCount(); // 获取当前任务的 tick 值
+
+    __BSP_LED2_Toggle();
+    printf("Swtmr2_Callback: %d, tick_num2: %d\n", TmrCb_Count2, tick_num2);
+}
+
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+在串口调试助手中可以看到运行结果我们可以看到，每 1000 个 `tick` 时候软件定时器就会触发一次回调函数，当 5000 个 `tick` 到来的时候，触发软件定时器单次模式的回调函数，之后便不会再次调用了。
+
+![image-20241125122742717](.assets/image-20241125122742717.png)
+
+## 十. 任务通知
+
+### 10.1 任务通知的基本概念
+
+FreeRTOS 从 V8.2.0 版本开始提供任务通知这个功能，每个任务都有一个 32 位的通知值，在大多数情况下，任务通知可以替代二值信号量、计数信号量、事件组，也可以替代长度为 1 的队列（可以保存一个 32 位整数或指针值）。
+
+相对于以前使用 FreeRTOS 内核通信的资源，必须创建队列、二进制信号量、计数信号量或事件组的情况，使用任务通知显然更灵活。按照 FreeRTOS 官方的说法，使用任务通知比通过信号量等 ICP 通信方式解除阻塞的任务要快 45%，并且更加省 RAM 内存空间（使用 GCC 编译器，-o2 优化级别），任务通<u>知的使用无</u>需创建队列。想要使用任务通知，必须将 `FreeRTOSConfig.h` 中的宏定义 configUSE_TASK_NOTIFICATIONS 设置为 1，其实 FreeRTOS 默认是为 1 的，所以任务通知是默认使能的。
+
+FreeRTOS 提供以下几种方式发送通知给任务 ：
+
+- 发送通知给任务， 如果有通知未读，不覆盖通知值。
+- 发送通知给任务，直接覆盖通知值。
+- 发送通知给任务，设置通知值的一个或者多个位 ，可以当做事件组来使用。
+- 发送通知给任务，递增通知值，可以当做计数信号量使用。
+
+通过对以上任务通知方式的合理使用，可以在一定场合下替代 FreeRTOS 的信号量，队列、事件组等。
+
+当然，凡是都有利弊，不然的话 FreeRTOS 还要内核的 IPC 通信机制干嘛，消息通知虽然处理更快，RAM 开销更小，但也有以下限制 ：
+
+- 只能有一个任务接收通知消息，因为必须指定接收通知的任务。
+- 只有等待通知的任务可以被阻塞，发送通知的任务，在任何情况下都不会因为发送失败而进入阻塞态。
+
+### 10.2 任务通知的运作机制
+
+顾名思义，任务通知是属于任务中附带的资源，所以在任务被创建的时候，任务通知也被初始化的，而在分析队列和信号量的章节中，我们知道在使用队列、信号量前，必须先创建队列和信号量，目的是为了创建队列数据结构。比如使用 `xQueueCreate()` 函数创建队列，用 `xSemaphoreCreateBinary()` 函数创建二值信号量等等。再来看任务通知，由于任务通知的数据结构包含在任务控制块中，只要任务存在，任务通知数据结构就已经创建完毕，可以直接使用，所以使用的时候很是方便。
+
+任务通知可以在任务中向指定任务发送通知，也可以在中断中向指定任务发送通知，FreeRTOS 的每个任务都有一个 32 位的通知值，任务控制块中的成员变量 `ulNotifiedValue` 就是这个通知值。只有在任务中可以等待通知，而不允许在中断中等待通知。如果任务在等待的通知暂时无效，任务会根据用户指定的阻塞超时时间进入阻塞状态，我们可以将等待通知的任务看作是消费者；其它任务和中断可以向等待通知的任务发送通知，发送通知的任务和中断服务函数可以看作是生产者，当其他任务或者中断向这个任务发送任务通知，任务获得通知以后，该任务就会从阻塞态中解除，这与 FreeRTOS 中内核的其他通信机制一致。
+
+### 10.3 任务通知的数据结构
+
+从前文我们知道，任务通知是任务控制块的资源，那它也算任务控制块中的成员变量，包含在任务控制块中，我们将其拿出来看看，具体见下面代码：
+
+任务控制块中的任务通知成员变量：
+
+```c
+
+```
+
+### 10.4 任务通知的函数接口讲解
+
+#### 10.4.1 发送任务通知函数 xTaskGenericNotify()
+
+我们先看一下发送通知 API 函数。这类函数比较多，有 6 个。但仔细分析会发现它们只能完成 3 种操作，每种操作有两个 API 函数，分别为带中断保护版本和不带中断保护版本。FreeRTOS 将 API 细分为带中断保护版本和不带中断保护版本是为了节省中断服务程序处理时间，提升性能。通过前面通信机制的学习，相信大家都了解了 FreeRTOS 的风格，这里的任务通知发送函数也是利用宏定义来进行扩展的，所有的函数都是一个宏定义，在任务中发送任务通知的函数均是调用 `xTaskGenericNotify()` 函数进行发送通知，下面来看看 `xTaskGenericNotify()` 的源码，具体见下面代码：
+
+```
+
+```
+
+`xTaskGenericNotify()` 函数是一个通用的任务通知发送函数，在任务中发送通知的 API 函数， 如 `xTaskNotifyGive()` 、`xTaskNotify()` 、`xTaskNotifyAndQuery()` ， 都是以 `xTaskGenericNotify()` 为原型的，只不过指定的发送方式不同而已。
+
+##### 1. xTaskNotifyGive()
+
+`xTaskNotifyGive()` 是一个宏，宏展开是调用函数 `xTaskNotify( ( xTaskToNotify ), ( 0 ), eIncrement )`，即向一个任务发送通知，并将对方的任务通知值加 1。该函数可以作为二值信号量和计数信号量的一种轻量型的实现，速度更快，在这种情况下对象任务在等待任务通知的时候应该是使用函数 `ulTaskNotifyTake()` 而不是 `xTaskNotifyWait()` 。
+
+`xTaskNotifyGive()` 不能在中断里面使用， 而是使用具有中断保护功能的 `vTaskNotifyGiveFromISR()` 来代替。该函数的具体说明见表格，应用举例见代码：
+
+<img src=".assets/image-20241125200008629.png" alt="image-20241125200008629" style="zoom:50%;" />
+
+```c
+/* 函数声明 */
+static void prvTask1( void *pvParameters );
+static void prvTask2( void *pvParameters );
+
+/*定义任务句柄 */
+static TaskHandle_t xTask1 = NULL, xTask2 = NULL;
+
+/* 主函数:创建两个任务，然后开始任务调度 */
+void main( void )
+{
+    xTaskCreate(prvTask1, "Task1", 200, NULL, tskIDLE_PRIORITY, &xTask1);
+    xTaskCreate(prvTask2, "Task2", 200, NULL, tskIDLE_PRIORITY, &xTask2);
+    vTaskStartScheduler();
+}
+
+/*-----------------------------------------------------------*/
+
+static void prvTask1( void *pvParameters )
+{
+    for ( ;; ) {
+        /* 向 prvTask2()发送一个任务通知，让其退出阻塞状态 */
+        xTaskNotifyGive( xTask2 );
+        
+        /* 阻塞在 prvTask2() 的任务通知上如果没有收到通知，则一直等待 */
+        ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
+    }
+}
+
+/*-----------------------------------------------------------*/
+
+static void prvTask2( void *pvParameters )
+{
+    for ( ;; ) {
+        /* 阻塞在 prvTask1()的任务通知上如果没有收到通知，则一直等待 */
+        ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
+        
+        /* 向 prvTask1()发送一个任务通知，让其退出阻塞状态 */
+        xTaskNotifyGive( xTask1 );
+    }
+}        
+```
+
+##### 2. vTaskNotifyGiveFromISR()
+
+`vTaskNotifyGiveFromISR()` 是 `vTaskNotifyGive()` 的中断保护版本。用于在中断中向指定任务发送任务通知，并更新对方的任务通知值（加1 操作），在某些场景中可以替代信号量操作，因为这两个通知都是不带有通知值的。该函数的具体说明见表格：
+
+<img src=".assets/image-20241125200449008.png" alt="image-20241125200449008" style="zoom:50%;" />
+
+从上面的函数说明我们大概知道 `vTaskNotifyGiveFromISR()` 函数作用，每次调用该函数都会增加任务的通知值，任务通过接收函数返回值是否大于零，判断是否获取到了通知，任务通知值初始化为 0，（如果与信号量做对比）则对应为信号量无效。当中断调用 `vTaskNotifyGiveFromISR()` 通知函数给任务的时候，任务的通知值增加，使其大于零，使其表示的通知值变为有效，任务获取有效的通知值将会被恢复。那么该函数是怎么实现的呢？下面一起来看看 `vTaskNotifyGiveFromISR()` 函数的源码，具体见代码：
+
+```
+
+```
+
+`vTaskNotifyGiveFromISR()` 函数应用举例：
+
+```c
+static TaskHandle_t xTaskToNotify = NULL;
+
+/* 外设驱动的数据传输函数 */
+void StartTransmission( uint8_t *pcData, size_t xDataLength )
+{
+    /* 在这个时候，xTaskToNotify 应为 NULL，因为发送并没有进行。如果有必要，对外设的访问可以用互斥量来保护 */
+    configASSERT( xTaskToNotify == NULL );
+    
+    /* 获取调用函数 StartTransmission() 的任务的句柄 */
+    xTaskToNotify = xTaskGetCurrentTaskHandle();
+    
+    /* 开始传输，当数据传输完成时产生一个中断 */
+    vStartTransmit( pcData, xDatalength );    
+}
+
+/*-----------------------------------------------------------*/
+/* 数据传输完成中断 */
+void vTransmitEndISR( void )
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    
+    /* 这个时候不应该为 NULL，因为数据传输已经开始 */
+    configASSERT( xTaskToNotify != NULL );
+    
+    /* 通知任务传输已经完成 */
+    vTaskNotifyGiveFromISR( xTaskToNotify, &xHigherPriorityTaskWoken );
+    
+    /* 传输已经完成，所以没有任务需要通知 */
+    xTaskToNotify = NULL;
+    
+    /* 如果为 pdTRUE，则进行一次上下文切换 */
+    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+}
+
+/*-----------------------------------------------------------*/
+/* 任务：启动数据传输，然后进入阻塞态，直到数据传输完成 */
+void vAFunctionCalledFromATask(uint8_t ucDataToTransmit,
+                               size_t xDataLength )
+{
+    uint32_t ulNotificationValue;
+    const TickType_t xMaxBlockTime = pdMS_TO_TICKS( 200 );
+    
+    /* 调用上面的函数 StartTransmission()启动传输 */
+    StartTransmission( ucDataToTransmit, xDataLength );
+    
+    /* 等待传输完成 */
+    ulNotificationValue = ulTaskNotifyTake( pdFALSE, xMaxBlockTime );
+    
+    /* 当传输完成时，会产生一个中断在中断服务函数中调用 vTaskNotifyGiveFromISR()向启动数据
+       传输的任务发送一个任务通知，并将对象任务的任务通知值加 1 任务通知值在任务创建的时候是
+       初始化为 0 的，当接收到任务后就变成 1 */
+    if ( ulNotificationValue == 1 ) {
+        /* 传输按预期完成 */
+    } else {
+        /* 调用函数 ulTaskNotifyTake() 超时 */
+    }
+}   
+```
+
+##### 3. xTaskNotify()
+
+FreeRTOS 每个任务都有一个 32 位的变量用于实现任务通知，在任务创建的时候初始化为 0。这个 32 位的通知值在任务控制块TCB 里面定义，具体见下面代码清单。`xTaskNotify()` 用于在任务中直接向另外一个任务发送一个事件，接收到该任务通知的任务有可能解锁。如果你想使用任务通知来实现二值信号量和计数信号量，那么应该使用更加简单的函数 `xTaskNotifyGive()` ，而不是使用 `xTaskNotify()`，`xTaskNotify()` 函数在发送任务通知的时候会指定一个通知值，并且用户可以指定通知值发送的方式。
+
+> [!caution]
+>
+> 该函数不能在中断里面使用，而是使用具体中断保护功能的版本函数 `xTaskNotifyFromISR()`。
+
+```c
+#if( configUSE_TASK_NOTIFICATIONS == 1 )
+volatile uint32_t ulNotifiedValue;
+volatile uint8_t ucNotifyState;
+#endif
+```
+
+<img src=".assets/image-20241125221355822.png" alt="image-20241125221355822" style="zoom:50%;" />
+
+任务通知值的状态：
+
+<img src=".assets/image-20241125221656108.png" alt="image-20241125221656108" style="zoom:50%;" />
+
+<img src=".assets/image-20241125221716360.png" alt="image-20241125221716360" style="zoom:50%;" />
+
+`xTaskNotify()` 函数应用举例：
+
+```c
+/* 设置任务 xTask1Handle 的任务通知值的位 8 为 1 */
+xTaskNotify( xTask1Handle, ( 1UL << 8UL ), eSetBits );
+
+/* 向任务 xTask2Handle 发送一个任务通知有可能会解除该任务的阻塞状态，但是并不会更新该任务自身的任务通知值 */
+xTaskNotify( xTask2Handle, 0, eNoAction );
+
+/* 向任务 xTask3Handle 发送一个任务通知并把该任务自身的任务通知值更新为 0x50 即使该任务的上一次的任务通知都
+   没有读取的情况下即覆盖写 */
+xTaskNotify( xTask3Handle, 0x50, eSetValueWithOverwrite );
+
+/* 向任务 xTask4Handle 发送一个任务通知并把该任务自身的任务通知值更新为 0xfff 但是并不会覆盖该任务之前接收
+   到的任务通知值 */
+if(xTaskNotify(xTask4Handle,0xfff,eSetValueWithoutOverwrite)==pdPASS )
+{
+    /* 任务xTask4Handle 的任务通知值已经更新 */
+} else {
+    /* 任务 xTask4Handle 的任务通知值没有更新即上一次的通知值还没有被取走 */
+}
+```
+
+##### 4. xTaskNotifyFromISR()
+
+`xTaskNotifyFromISR()` 是 `xTaskNotify()` 的中断保护版本，真正起作用的函数是中断发送任务通知通用函数 `xTaskGenericNotifyFromISR()`，而 `xTaskNotifyFromISR()` 是一个宏定义，用于在中断中向指定的任务发送一个任务通知，该任务通知是带有通知值并且用户可以指定通知的发送方式，不返回上一个任务在的通知值。
+
+```c
+#define xTaskNotifyFromISR( xTaskToNotify, \
+						  ulValue, \
+						  eAction, \
+						  pxHigherPriorityTaskWoken ) \
+	    xTaskGenericNotifyFromISR( ( xTaskToNotify ), \
+						  		( ulValue ), \
+						  		( eAction ), \
+								NULL, \
+								( pxHigherPriorityTaskWoken ) )
+```
+
+<img src=".assets/image-20241128112547413.png" alt="image-20241128112547413" style="zoom:50%;" />
+
+##### 5. xTaskGenericNotifyFromISR()
+
+`xTaskGenericNotifyFromISR()` 是一个在中断中发送任务通知的通用函数，`xTaskNotifyFromISR()`、`xTaskNotifyAndQueryFromISR()` 等函数都是以其为基础，采用宏定义的方式实现。
+
+```
+
+```
+
+`xTaskNotifyFromISR()` 使用实例：
+
+```c
+/* 中断：向一个任务发送任务通知，并根据不同的中断将目标任务的任务通知值的相应位置 1 */
+void vANInterruptHandler( void )
+{
+    BaseType_t xHigherPriorityTaskWoken;
+    uint32_t ulStatusRegister;
+
+    /* 读取中断状态寄存器，判断到来的是哪个中断这里假设了 Rx、Tx 和 buffer overrun 三个中断 */
+    ulStatusRegister = ulReadPeripheralInterruptStatus();
+
+    /* 清除中断标志位 */
+    vClearPeripheralInterruptStatus( ulStatusRegister );
+
+    /* xHigherPriorityTaskWoken 在使用之前必须初始化为 pdFALSE 如果调用函数 xTaskNotifyFromISR()解锁了解锁了接收        该通知的任务而且该任务的优先级比当前运行的任务的优先级高，那么 xHigherPriorityTaskWoken 就会自动的被设置为          pdTRUE*/
+    xHigherPriorityTaskWoken = pdFALSE;
+
+    /* 向任务 xHandlingTask 发送任务通知，并将其任务通知值与 ulStatusRegister 的值相或，这样可以不改变任务通知其它        位的值*/
+    xTaskNotifyFromISR( xHandlingTask, ulStatusRegister, eSetBits, &xHigherPriorityTaskWoken );
+
+    /* 如果 xHigherPriorityTaskWoken 的值为 pdRTUE 则执行一次上下文切换*/
+    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+}
+
+/* 任务：等待任务通知，然后处理相关的事情 */
+void vHandlingTask( void *pvParameters )
+{
+    uint32_t ulInterruptStatus;
+
+    for ( ;; ) {
+        /* 等待任务通知，无限期阻塞（没有超时，所以没有必要检查函数返回值）*/
+        xTaskNotifyWait( 0x00, /* 在进入的时候不清除通知值的任何位 */
+                        ULONG_MAX, /* 在退出的时候复位通知值为 0 */
+                        &ulNotifiedValue, /* 任务通知值传递到变量 ulNotifiedValue 中*/
+                        portMAX_DELAY ); /* 无限期等待 */
+
+        /* 根据任务通知值里面的各个位的值处理事情 */
+        if ( ( ulInterruptStatus & 0x01 ) != 0x00 ) {
+            /* Rx 中断 */
+            prvProcessRxInterrupt();
+        }
+
+        if ( ( ulInterruptStatus & 0x02 ) != 0x00 ) {
+            /* Tx 中断 */
+            prvProcessTxInterrupt();
+        }
+
+        if ( ( ulInterruptStatus & 0x04 ) != 0x00 ) {
+            /* 缓冲区溢出中断 */
+            prvClearBufferOverrun();
+        }
+    }
+}
+```
+
+##### 6. xTaskNotifyAndQuery()
+
+`xTaskNotifyAndQuery()` 与 `xTaskNotify()` 很像，都是调用通用的任务通知发送函数 `xTaskGenericNotify()` 来实现通知的发送， 不同的是多了一个附加的参数 `pulPreviousNotifyValue` 用于回传接收任务的上一个通知值。`xTaskNotifyAndQuery()`函数不能用在中断中，而是必须使用带中断保护功能的 `xTaskNotifyAndQueryFromISR()` 来代替。
+
+`xTaskNotifyAndQuery()` 函数原型：
+
+```c
+#define xTaskNotifyAndQuery(   xTaskToNotify, \
+						     ulValue, \
+					         eAction, \
+							pulPreviousNotifyValue ) \
+							xTaskGenericNotify( ( xTaskToNotify ), \
+							( ulValue ), \
+							( eAction ), \
+							( pulPreviousNotifyValue ) )
+```
+
+<img src=".assets/image-20241128113951314.png" alt="image-20241128113951314" style="zoom:50%;" />
+
+`xTaskNotifyAndQuery()` 函数应用举例：
+
+```c
+uint32_t ulPreviousValue;
+
+/* 设置对象任务 xTask1Handle 的任务通知值的位 8 为 1 在更新位 8 的值之前把任务通知值
+   回传存储在变量 ulPreviousValue 中*/
+xTaskNotifyAndQuery( xTask1Handle, ( 1UL << 8UL ), eSetBits, &ulPreviousValue );
+
+/* 向对象任务 xTask2Handle 发送一个任务通知，有可能解除对象任务的阻塞状态,但是不更新对象任务的通知值
+   并将对象任务的通知值存储在变量 ulPreviousValue 中 */
+xTaskNotifyAndQuery( xTask2Handle, 0, eNoAction, &ulPreviousValue );
+
+/* 覆盖式设置对象任务的任务通知值为 0x50 且对象任务的任务通知值不用回传，则最后一个形参设置为 NULL */
+xTaskNotifyAndQuery( xTask3Handle, 0x50, eSetValueWithOverwrite, NULL );
+
+/* 设置对象任务的任务通知值为 0xfff，但是并不会覆盖对象任务通过 xTaskNotifyWait()和 ulTaskNotifyTake()
+   这两个函数获取到的已经存在的任务通知值。对象任务的前一个任务通知值存储在变量 ulPreviousValue 中 */
+if ( xTaskNotifyAndQuery( xTask4Handle,
+                          0xfff,
+                          eSetValueWithoutOverwrite,
+                          &ulPreviousValue ) == pdPASS )
+{
+    /* 任务通知值已经更新 */
+} else {
+    /* 任务通知值没有更新 */
+}
+```
+
+##### 7. xTaskNotifyAndQueryFromISR()
+
+`xTaskNotifyAndQueryFromISR()` 是 `xTaskNotifyAndQuery()` 的中断版本，用于向指定的任务发送一个任务通知，并返回对象任务的上一个通知值，该函数也是一个宏定义，真正实现发送通知的是 `xTaskGenericNotifyFromISR()`。
+
+<img src=".assets/image-20241128121517019.png" alt="image-20241128121517019" style="zoom:50%;" />
+
+`xTaskNotifyAndQueryFromISR()` 函数应用举例：
+
+```c
+void vAnISR( void )
+{
+    /* xHigherPriorityTaskWoken 在使用之前必须设置为pdFALSE */
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+   	uint32_t ulPreviousValue;
+
+    /* 设置目标任务 xTask1Handle 的任务通知值的位 8 为 1 在任务通知值的位 8 被更新之前把上一次的值存储在变量		   ulPreviousValue 中 */
+    xTaskNotifyAndQueryFromISR( xTask1Handle,
+                               ( 1UL << 8UL ),
+                               eSetBits,
+                               &ulPreviousValue,
+                               &xHigherPriorityTaskWoken );
+
+    /* 如果任务 xTask1Handle 阻塞在任务通知上，那么现在已经被解锁进入就绪态
+	   如果其优先级比当前正在运行的任务的优先级高，则 xHigherPriorityTaskWoken
+	   会被设置为 pdRTUE，然后在中断退出前执行一次上下文切换，在中断退出后则去
+	   执行这个被唤醒的高优先级的任务 */
+    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+}
+```
+
+#### 10.4.2 获取任务通知函数
+
+既然 FreeRTOS 中发送任务的函数有那么多个，那么任务怎么获取到通知呢？我们说了，任务通知在某些场景可以替代信号量、消息队列、事件等。获取任务通知函数只能用在任务中，没有带中断保护版本，因此只有两个 API 函数： `ulTaskNotifyTake()` 和 `xTaskNotifyWait()`。前者是为代替二值信号量和计数信号量而专门设计的，它和发送通知 API 函数 `xTaskNotifyGive()`、`vTaskNotifyGiveFromISR()` 配合使用；后者是全功能版的等待通知，可以根据不同的参数实现轻量级二值信号量、计数信号量、事件组和长度为 1 的队列。
+
+所有的获取任务通知 API 函数都带有指定阻塞超时时间参数，当任务因为等待通知而进入阻塞时，用来指定任务的阻塞时间，这些超时机制与 FreeRTOS 的消息队列、信号量、事件等的超时机制一致。
+
+##### 1. ulTaskNotifyTake()
+
+`ulTaskNotifyTake()` 作为二值信号量和计数信号量的一种轻量级实现，速度更快。如果FreeRTOS 中使用函数`xSemaphoreTake()` 来获取信号量，这个时候则可以试试使用函数 `ulTaskNotifyTake()` 来代替。
+
+对于这个函数，任务通知值为 0，对应信号量无效，如果任务设置了阻塞等待，任务被阻塞挂起。当其他任务或中断发送了通知值使其不为 0 后，通知变为有效，等待通知的任务将获取到通知，并且在退出时候根据用户传递的第一个参数 `xClearCountOnExit` 选择清零通知值或者执行减一操作。
+
+`xTaskNotifyTake()` 在退出的时候处理任务的通知值的时候有两种方法，一种是在函数退出时将通知值清零，这种方法适用于实现二值信号量；另外一种是在函数退出时将通知值减 1，这种方法适用于实现计数信号量。当一个任务使用其自身的任务通知值作为二值信号量或者计数信号量时，其他任务应该使用函数 `xTaskNotifyGive()` 或者 `xTaskNotify( ( xTaskToNotify ), ( 0 ), eIncrement )` 来向其发送信号量。如果是在中断中，则应该使用他们的中断版本函数。
+
+<img src=".assets/image-20241128122224991.png" alt="image-20241128122224991" style="zoom:50%;" />
+
+`ulTaskNotifyTake()` 源码：
+
+```
+
+```
+
+与获取二值信号量和获取计数信号量的函数相比，`ulTaskNotifyTake()` 函数少了很多调用子函数开销、少了很多判断、少了事件列表处理、少了队列上锁与解锁处理等等，因此 `ulTaskNotifyTake()` 函数相对效率很高。
+
+`ulTaskNotifyTake()` 函数应用举例：
+
+```c
+/* 中断服务程序：向一个任务发送任务通知 */
+void vANInterruptHandler( void )
+{
+    BaseType_t xHigherPriorityTaskWoken;
+
+    /* 清除中断 */
+    prvClearInterruptSource();
+
+    /* xHigherPriorityTaskWoken 在使用之前必须设置为 pdFALSE 如果调用 vTaskNotifyGiveFromISR()会解除   
+       vHandlingTask 任务的阻塞状态，并且 vHandlingTask 任务的优先级高于当前处于运行状态的任务，
+      则 xHigherPriorityTaskWoken 将会自动被设置为 pdTRUE */
+    xHigherPriorityTaskWoken = pdFALSE;
+
+    /* 发送任务通知，并解锁阻塞在该任务通知下的任务 */
+    vTaskNotifyGiveFromISR( xHandlingTask, &xHigherPriorityTaskWoken );
+
+    /* 如果被解锁的任务优先级比当前运行的任务的优先级高则在中断退出前执行一次上下文切换，在中断退出后去执行
+       刚刚被唤醒的优先级更高的任务 */
+    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+}
+
+/* 任务：阻塞在一个任务通知上 */
+void vHandlingTask( void *pvParameters )
+{
+    BaseType_t xEvent;
+
+    for ( ;; ) {
+        /* 一直阻塞（没有时间限制，所以没有必要检测函数的返回值）这里 RTOS 的任务通知值被用作二值信号量，所以在函数退            出时，任务通知值要被清 0 。要注意的是真正的应用程序不应该无限期的阻塞 */
+        ulTaskNotifyTake( pdTRUE,          /* 在退出前清 0 任务通知值 */
+                          portMAX_DELAY ); /* 无限阻塞 */
+
+        /* RTOS 任务通知被当作二值信号量使用当处理完所有的事情后继续等待下一个任务通知 */
+        do {
+            xEvent = xQueryPeripheral();
+
+            if ( xEvent != NO_MORE_EVENTS ) {
+                vProcessPeripheralEvent( xEvent );
+            }
+
+        } while ( xEvent != NO_MORE_EVENTS );
+    }
+}
+```
+
+##### 2. xTaskNotifyWait()
+
+`xTaskNotifyWait()` 函数用于实现全功能版的等待任务通知，根据用户指定的参数的不同，可以灵活的用于实现轻量级的消息队列队列、二值信号量、计数信号量和事件组功能，并带有超时等待。
+
+<img src=".assets/image-20241128123118000.png" alt="image-20241128123118000" style="zoom: 67%;" />
+
+`xTaskNotifyWait()` 源码：
+
+```
+
+```
+
+纵观整个任务通知的实现，我们不难发现它比消息队列、信号量、事件的实现方式要简单很多。它可以实现轻量级的消息队列、二值信号量、计数信号量和事件组，并且使用更方便、更节省RAM、更高效。
+
+至此，任务通知的函数基本讲解完成，但是我们有必要说明一下，任务通知并不能完全代替队列、二值信号量、计数信号量和事件组，使用的时候需要用户按需处理，此外，再提一次任务通知的局限性：
+
+- 只能有一个任务接收通知事件。
+- 接收通知的任务可以因为等待通知而进入阻塞状态，但是发送通知的任务即便不能立即完成发送通知，也不能进入阻塞状态。
+
+`xTaskNotifyWait()` 函数使用实例：
+
+```c
+/* 这个任务展示使用任务通知值的位来传递不同的事件这在某些情况下可以代替事件标志组。*/
+void vAnEventProcessingTask( void *pvParameters )
+{
+    uint32_t ulNotifiedValue;
+
+    for ( ;; ) {
+        /* 等待任务通知，无限期阻塞（没有超时，所以没有必要检查函数返回值）
+ 		  这个任务的任务通知值的位由标志事件发生的任务或者中断来设置 */
+        xTaskNotifyWait( 0x00, /* 在进入的时候不清除通知值的任何位 */
+                         ULONG_MAX, /* 在退出的时候复位通知值为0 */
+                         &ulNotifiedValue, /* 任务通知值传递到变量 ulNotifiedValue 中 */
+                         portMAX_DELAY ); /* 无限期等待 */
+
+
+        /* 根据任务通知值里面的各个位的值处理事情 */
+        if ( ( ulNotifiedValue & 0x01 ) != 0 ) {
+            /* 位 0 被置 1 */
+            prvProcessBit0Event();
+        }
+
+        if ( ( ulNotifiedValue & 0x02 ) != 0 ) {
+            /* 位 1 被置 1 */
+            prvProcessBit1Event();
+        }
+
+        if ( ( ulNotifiedValue & 0x04 ) != 0 ) {
+            /* 位 2 被置 1 */
+            prvProcessBit2Event();
+        }
+
+        /* ... 等等 */
+    }
+}
+```
+
+### 10.5 任务通知实验
+
+#### 10.5.1 任务通知代替消息队列
+
+任务通知代替消息队列是在 FreeRTOS 中创建了三个任务，其中两个任务是用于接收任务通知，另一个任务发送任务通知。三个任务独立运行，发送消息任务是通过检测按键的按下情况来发送消息通知，另两个任务获取消息通知，在任务通知中没有可用的通知之前就一直等待消息，一旦获取到消息通知就把消息打印在串口调试助手里。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define USE_CHAR 0 // 测试字符串的时候配置为 1 ，测试变量配置为 0
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static void AppTaskCreate(void);
+
+static void Receive1_Task(void *pvParameters);
+static void Receive2_Task(void *pvParameters);
+
+static void Send_Task(void *pvParameters);
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+static TaskHandle_t APPTaskCreate_Handle = NULL;
+
+static TaskHandle_t Receive1_Task_Handle = NULL;
+static TaskHandle_t Receive2_Task_Handle = NULL;
+static TaskHandle_t Send_Task_Handle = NULL;
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xRetrn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("\n- programe start!\n\n");
+    printf("Press KEY0 or KEY1 to send message to task\n");
+
+    xRetrn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                         "AppTaskCreate",
+                         512,
+                         NULL,
+                         1,
+                         &APPTaskCreate_Handle);
+    if (pdPASS == xRetrn)
+        vTaskStartScheduler();
+    else {
+        printf("ERROR: app create task create failed!\n");
+        return -1;
+    }
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    BaseType_t xRetrn = pdPASS;
+
+    taskENTER_CRITICAL(); // 进入临界区
+
+    xRetrn = xTaskCreate((TaskFunction_t)Receive1_Task,
+                         "Receive1_Task",
+                         512,
+                         NULL,
+                         2,
+                         &Receive1_Task_Handle);
+
+    if (pdPASS == xRetrn)
+        printf("Create Receive1_Task success!\n");
+
+    xRetrn = xTaskCreate((TaskFunction_t)Receive2_Task,
+                         "Receive2_Task",
+                         512,
+                         NULL,
+                         3,
+                         &Receive2_Task_Handle);
+
+    if (pdPASS == xRetrn)
+        printf("Create Receive2_Task success!\n");
+
+    xRetrn = xTaskCreate((TaskFunction_t)Send_Task,
+                         "Send_Task",
+                         512,
+                         NULL,
+                         4,
+                         &Send_Task_Handle);
+
+    if (pdPASS == xRetrn)
+        printf("Create Send_Task success!\n");
+    
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void Receive1_Task(void *pvParameters)
+{
+    BaseType_t xRetrn = pdTRUE;
+    #if USE_CHAR
+    char *r_char;
+    #else 
+    uint32_t r_num;
+    #endif
+    printf("Receive1_Task: start!\n");
+    while (1)
+    {
+        // 获取任务通知, 没获取到则一直等待
+        xRetrn = xTaskNotifyWait(0x0,      // 进入函数的时候不清除任务 bit
+                                 ULONG_MAX, // 退出函数的时候清除所有 bit
+                                 #if USE_CHAR
+                                 (uint32_t *)&r_char,   // 保存任务通知值
+                                 #else
+                                 &r_num, 
+                                 #endif
+                                 portMAX_DELAY); // 阻塞时间
+
+        if (pdPASS == xRetrn)
+        {
+            #if USE_CHAR
+            printf("Receive1_Task: %s\n", r_char);
+            #else
+            printf("Receive1_Task: %d\n", r_num);
+            #endif
+        }
+        __BSP_LED1_TOGGLE();
+    }
+}
+
+static void Receive2_Task(void *pvParameters)
+{
+    BaseType_t xRetrn = pdTRUE;
+    #if USE_CHAR
+    char *r_char;
+    #else 
+    uint32_t r_num;
+    #endif
+    printf("Receive2_Task: start!\n");
+    while (1)
+    {
+        xRetrn = xTaskNotifyWait(0x0,      // 进入函数的时候不清除任务 bit  
+                                 ULONG_MAX, // 退出函数的时候清除所有 bit
+                                 #if USE_CHAR
+                                 (uint32_t *)&r_char,   // 保存任务通知值
+                                 #else
+                                 &r_num, 
+                                 #endif
+                                 portMAX_DELAY); // 阻塞时间
+
+        if (pdPASS == xRetrn)
+        {
+            #if USE_CHAR
+            printf("Receive2_Task: %s\n", r_char);
+            #else
+            printf("Receive2_Task: %d\n", r_num);
+            #endif
+        }
+        __BSP_LED2_TOGGLE();
+    }
+}
+
+static void Send_Task(void *pvParameters)
+{
+    BaseType_t xRetrn = pdPASS;
+    #if USE_CHAR
+    char test_str1[] = "this is a mail test 1";
+    char test_str2[] = "this is a mail test 2";
+    #else
+    uint32_t s_num1 = 1;
+    uint32_t s_num2 = 2;
+    #endif
+    printf("Send_Task: start!\n");
+    while (1)
+    {
+        if (BSP_KEY_Read(KEY0) == BSP_KEY_PRESSED)
+        {
+            xRetrn = xTaskNotify(Receive1_Task_Handle, // 任务句柄
+                                 #if USE_CHAR
+                                 (uint32_t)test_str1, // 发送的数据, 最大为 4 字节
+                                 #else
+                                 s_num1, // 发送的数据, 最大为 4 字节
+                                 #endif
+                                 eSetValueWithOverwrite); // 任务通知方式: 覆盖当前通知
+
+            if (pdPASS == xRetrn)
+                printf("Send_Task: Send message to Receive1_Task success!\n");
+            else
+                printf("Send_Task: Send message to Receive1_Task failed!\n");
+        }
+        if (BSP_KEY_Read(KEY1) == BSP_KEY_PRESSED)
+        {
+            xRetrn = xTaskNotify(Receive2_Task_Handle,
+                                 #if USE_CHAR
+                                 (uint32_t)test_str2,
+                                 #else
+                                 s_num2,
+                                 #endif
+                                 eSetValueWithOverwrite);  
+
+            if (pdPASS == xRetrn)
+                printf("Send_Task: Send message to Receive2_Task success!\n");
+            else
+                printf("Send_Task: Send message to Receive2_Task failed!\n");
+        }
+        vTaskDelay(100);
+    }
+}
+
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+#### 10.5.2 任务通知代替二值信号量
+
+任务通知代替消息队列是在 FreeRTOS 中创建了三个任务，其中两个任务是用于接收任务通知，另一个任务发送任务通知。三个任务独立运行，发送通知任务是通过检测按键的按下情况来发送通知，另两个任务获取通知，在任务通知中没有可用的通知之前就一直等待任务通知，获取到通知以后就将通知值清 0，这样子是为了代替二值信号量，任务同步成功则继续执行，然后在串口调试助手里将运行信息打印出来。
+
+``` c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t AppTaskCreate_Handle = NULL;   /* 创建任务句柄 */
+static TaskHandle_t Receive1_Task_Handle = NULL;   /*Receive1_Task 任务句柄 */
+static TaskHandle_t Receive2_Task_Handle = NULL;   /*Receive2_Task 任务句柄 */
+static TaskHandle_t Send_Task_Handle = NULL;       /* Send_Task 任务句柄 */
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+static void AppTaskCreate(void);                  /* 用于创建任务 */
+static void Receive1_Task(void *pvParameters);    /* Receive1_Task 任务实现 */
+static void Receive2_Task(void *pvParameters);    /* Receive2_Task 任务实现 */
+static void Send_Task(void *pvParameters);        /* Send_Task 任务实现 */
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xReturn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("\n- Program Start -\n");
+    
+    xReturn = xTaskCreate((TaskFunction_t )AppTaskCreate, 
+                          "AppTaskCreate", 
+                          512, 
+                          NULL, 
+                          1, 
+                          &AppTaskCreate_Handle);
+    if (pdPASS == xReturn)
+    {
+        printf("AppTaskCreate task create success!\n");
+        vTaskStartScheduler();
+    }
+    else 
+        printf("AppTaskCreate task create failed!\n");
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    printf("AppTaskCreate task is running!\n");
+    taskENTER_CRITICAL();
+    xReturn = xTaskCreate((TaskFunction_t )Receive1_Task, 
+                          "Receive1_Task", 
+                          512, 
+                          NULL, 
+                          2, 
+                          &Receive1_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("Receive1_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t )Receive2_Task, 
+                          "Receive2_Task", 
+                          512, 
+                          NULL, 
+                          3, 
+                          &Receive2_Task_Handle);   
+    if (pdPASS == xReturn)
+        printf("Receive2_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t )Send_Task, 
+                          "Send_Task", 
+                          512, 
+                          NULL, 
+                          4, 
+                          &Send_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("Send_Task task create success!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void Receive1_Task(void *pvParameters)
+{
+    while (1)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        printf("Receive1 Task get message success!\n");
+        __BSP_LED1_FICKER(100);
+    }
+}
+
+static void Receive2_Task(void *pvParameters)
+{
+    while (1)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        printf("Receive2 Task get message success!\n");
+        __BSP_LED2_FICKER(100);
+    }
+}
+
+static void Send_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdPASS;
+    while (1)
+    {
+        xReturn =  xTaskNotifyGive(Receive1_Task_Handle);
+        if (pdPASS == xReturn)
+            printf("Send_Task send message to Receive1_Task success!\n");
+
+        xReturn = xTaskNotifyGive(Receive2_Task_Handle);
+        if (pdPASS == xReturn)
+            printf("Send_Task send message to Receive2_Task success!\n");
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+#### 10.5.3 任务通知代替计数信号量
+
+任务通知代替计数信号量是基于计数型信号量实验修改而来，模拟停车场工作运行。并且在 FreeRTOS 中创建了两个任务：一个是获取任务通知，一个是发送任务通知，两个任务独立运行，获取通知的任务是通过按下 KEY1 按键获取，模拟停车场停车操作，其等待时间是 0；发送通知的任务则是通过检测 KEY2 按键按下进行通知的发送，模拟停车场取车操作，并且在串口调试助手输出相应信息。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t AppTaskCreate_Handle = NULL;   /* 创建任务句柄 */
+static TaskHandle_t Receive1_Task_Handle = NULL;   /*Receive1_Task 任务句柄 */
+static TaskHandle_t Send_Task_Handle = NULL;       /* Send_Task 任务句柄 */
+
+SemaphoreHandle_t CountSem_Handle = NULL;          /* 信号量句柄 */
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+static void AppTaskCreate(void);                  /* 用于创建任务 */
+static void Receive1_Task(void *pvParameters);    /* Receive1_Task 任务实现 */
+static void Send_Task(void *pvParameters);        /* Send_Task 任务实现 */
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xReturn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("\n- Program Start -\n");
+    
+    xReturn = xTaskCreate((TaskFunction_t )AppTaskCreate, 
+                          "AppTaskCreate", 
+                          512, 
+                          NULL, 
+                          1, 
+                          &AppTaskCreate_Handle);
+    if (pdPASS == xReturn)
+    {
+        printf("AppTaskCreate task create success!\n");
+        vTaskStartScheduler();
+    }
+    else 
+        printf("AppTaskCreate task create failed!\n");
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    printf("AppTaskCreate task is running!\n");
+    taskENTER_CRITICAL();
+    xReturn = xTaskCreate((TaskFunction_t )Receive1_Task, 
+                          "Receive1_Task", 
+                          512, 
+                          NULL, 
+                          2, 
+                          &Receive1_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("Receive1_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t )Send_Task, 
+                          "Send_Task", 
+                          512, 
+                          NULL, 
+                          3, 
+                          &Send_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("Send_Task task create success!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void Receive1_Task(void *pvParameters)
+{
+    uint32_t take_num = pdTRUE;
+    while (1)
+    {
+        take_num = ulTaskNotifyTake(pdFALSE, 0);
+        if (take_num > 0)
+            printf("申请信号量成功！\n");
+        else
+            printf("已无信号量可申请！take_num = %d\n", take_num);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+static void Send_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdPASS;
+    while (1)
+    {
+        xTaskNotifyGive(Receive1_Task_Handle);
+        if (pdPASS == xReturn)
+            printf("释放一个信号量!\n");
+        else
+            printf("释放信号量失败!\n");
+        vTaskDelay(pdMS_TO_TICKS(300));
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+#### 10.5.4 任务通知代替事件组
+
+任务通知代替事件组实验是在事件标志组实验基础上进行修改，实验任务通知替代事件实现事件类型的通信，该实验是在FreeRTOS 中创建了两个任务，一个是发送事件通知任务，一个是等待事件通知任务，两个任务独立运行，发送事件通知任务通过检测按键的按下情况设置不同的通知值位，等待事件通知任务则获取这任务通知值，并且根据通知值判断两个事件是否都发生，如果是则输出相应信息，LED 进行翻转。等待事件通知任务的等待时间是 portMAX_DELAY，一直在等待事件通知的发生，等待获取到事件之后清除对应的任务通知值的位。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define KEY1_EVENT (0x01 << 0)
+#define KEY2_EVENT (0x01 << 1)
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t AppTaskCreate_Handle = NULL;   /* 创建任务句柄 */
+static TaskHandle_t LED_Task_Handle = NULL;         /* LED_Task 任务句柄 */
+static TaskHandle_t KEY_Task_Handle = NULL;        /* KEY_Task 任务句柄 */
+
+SemaphoreHandle_t CountSem_Handle = NULL;          /* 信号量句柄 */
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+static void AppTaskCreate(void);                  /* 用于创建任务 */
+static void LED_Task(void *pvParameters);        /* LED_Task 任务实现 */
+static void KEY_Task(void *pvParameters);       /* KEY_Task 任务实现 */
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xReturn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("\n- Program Start -\n");
+    
+    xReturn = xTaskCreate((TaskFunction_t )AppTaskCreate, 
+                          "AppTaskCreate", 
+                          512, 
+                          NULL, 
+                          1, 
+                          &AppTaskCreate_Handle);
+    if (pdPASS == xReturn)
+    {
+        printf("AppTaskCreate task create success!\n");
+        vTaskStartScheduler();
+    }
+    else 
+        printf("AppTaskCreate task create failed!\n");
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    printf("AppTaskCreate task is running!\n");
+    taskENTER_CRITICAL();
+    xReturn = xTaskCreate((TaskFunction_t )LED_Task, 
+                          "LED_Task", 
+                          512, 
+                          NULL, 
+                          2, 
+                          &LED_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("LED_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t )KEY_Task, 
+                          "KEY_Task", 
+                          512, 
+                          NULL, 
+                          3, 
+                          &KEY_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("KEY_Task task create success!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void LED_Task(void *pvParameters)
+{
+    uint32_t r_event = 0;
+    uint32_t last_event = 0;
+    BaseType_t xReturn = pdPASS;
+
+    while (1)
+    {
+        xReturn = xTaskNotifyWait(0x0,
+                                  ULONG_MAX,
+                                  &r_event,
+                                  portMAX_DELAY);
+        if (pdPASS == xReturn) {
+            last_event |= r_event;
+            if (last_event == (KEY1_EVENT | KEY2_EVENT)) {
+                last_event = 0;
+                printf("KEY1 and KEY2 pressed!\n");
+                __BSP_LED1_ON();
+            } else {
+                last_event = r_event;
+            }
+        }
+    }
+}
+
+static void KEY_Task(void *pvParameters)
+{
+    while (1)
+    {
+        printf("KEY_Task is running!\n");
+        xTaskNotify((TaskHandle_t)LED_Task_Handle,
+                    (uint32_t)KEY1_EVENT,
+                    (eNotifyAction)eSetBits);
+        vTaskDelay(pdMS_TO_TICKS(200));
+
+        xTaskNotify((TaskHandle_t)LED_Task_Handle,
+                    (uint32_t)KEY2_EVENT,
+                    (eNotifyAction)eSetBits);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+## 十一. 内存管理
+
+### 11.1 内存管理的基本概念
+
+在计算系统中，变量、中间数据一般存放在系统存储空间中，只有在实际使用时才将它们从存储空间调入到中央处理器内部进行运算。通常存储空间可以分为两种：内部存储空间和外部存储空间。内部存储空间访问速度比较快，能够按照变量地址随机地访问，也就是我们通常所说的 RAM（随机存储器），或电脑的内存；而外部存储空间内所保存的内容相对来说比较固定，即使掉电后数据也不会丢失，可以把它理解为电脑的硬盘。在这一章中我们主要讨论内部存储空间（RAM）的管理——内存管理。
+
+FreeRTOS 操作系统将内核与内存管理分开实现，操作系统内核仅规定了必要的内存管理函数原型，而不关心这些内存管理函数是如何实现的，所以在 FreeRTOS 中提供了多种内存分配算法（分配策略），但是上层接口（API）却是统一的。这样做可以增加系统的灵活性：用户可以选择对自己更有利的内存管理策略，在不同的应用场合使用不同的内存分配策略。
+
+在嵌入式程序设计中内存分配应该是根据所设计系统的特点来决定选择使用动态内存分配还是静态内存分配算法，一些可靠性要求非常高的系统应选择使用静态的，而普通的业务系统可以使用动态来提高内存使用效率。静态可以保证设备的可靠性但是需要考虑内存上限，内存使用效率低，而动态则是相反。
+
+FreeRTOS 内存管理模块管理用于系统中内存资源，它是操作系统的核心模块之一。主要包括内存的初始化、分配以及释放。
+
+很多人会有疑问，什么不直接使用C 标准库中的内存管理函数呢？在电脑中我们可以用 `malloc()` 和 `free()` 这两个函数动态的分配内存和释放内存。但是，在嵌入式实时操作系统中，调用 `malloc()` 和 `free()` 却是危险的，原因有以下几点：
+
+- 这些函数在小型嵌入式系统中并不总是可用的，小型嵌入式设备中的 RAM 不足。
+- 它们的实现可能非常的大，占据了相当大的一块代码空间。
+- 他们几乎都不是安全的。
+- 它们并不是确定的，每次调用这些函数执行的时间可能都不一样。
+- 它们有可能产生碎片。
+- 这两个函数会使得链接器配置得复杂。
+- 如果允许堆空间的生长方向覆盖其他变量占据的内存，它们会成为 debug 的灾难。
+
+在一般的实时嵌入式系统中，由于实时性的要求，很少使用虚拟内存机制。所有的内存都需要用户参与分配，直接操作物理内存，所分配的内存不能超过系统的物理内存，所有的系统堆栈的管理，都由用户自己管理。
+
+同时，在嵌入式实时操作系统中，对内存的分配时间要求更为苛刻，分配内存的时间必须是确定的。一般内存管理算法是根据需要存储的数据的长度在内存中去寻找一个与这段数据相适应的空闲内存块，然后将数据存储在里面。而寻找这样一个空闲内存块所耗费的时间是不确定的，因此对于实时系统来说，这就是不可接受的，实时系统必须要保证内存块的分配过程在可预测的确定时间内完成，否则实时任务对外部事件的响应也将变得不可确定。
+
+而在嵌入式系统中，内存是十分有限而且是十分珍贵的，用一块内存就少了一块内存，而在分配中随着内存不断被分配和释放，整个系统内存区域会产生越来越多的碎片，因为在使用过程中，申请了一些内存，其中一些释放了，导致内存空间中存在一些小的内存块，它们地址不连续，不能够作为一整块的大内存分配出去，所以一定会在某个时间，系统已经无法分配到合适的内存了，导致系统瘫痪。其实系统中实际是还有内存的，但是因为小块的内存的地址不连续，导致无法分配成功，所以我们需要一个优良的内存分配算法来避免这种情况的出现。
+
+不同的嵌入式系统具有不同的内存配置和时间要求。所以单一的内存分配算法只可能适合部分应用程序。因此，FreeRTOS 将内存分配作为可移植层面（相对于基本的内核代码部分而言），FreeRTOS 有针对性的提供了不同的内存分配管理算法，这使得应用于不同场景的设备可以选择适合自身内存算法。
+
+FreeRTOS 对内存管理做了很多事情，FreeRTOS 的 V9.0.0 版本为我们提供了 5 种内存管理算法，分别是`heap_1.c`、`heap_2.c`、`heap_3.c`、`heap_4.c`、`heap_5.c`，源文件存放于 `FreeRTOS\Source\portable\MemMang` 路径下，在使用的时候选择其中一个添加到我们的工程中去即可。
+
+FreeRTOS 的内存管理模块通过对内存的申请、释放操作，来管理用户和系统对内存的使用，使内存的利用率和使用效率达到最优，同时最大限度地解决系统可能产生的内存碎片问题。
+
+### 11.2 内存管理的应用场景
+
+首先，在使用内存分配前，必须明白自己在做什么，这样做与其他的方法有什么不同，特别是会产生哪些负面影响，在自己的产品面前，应当选择哪种分配策略。
+
+内存管理的主要工作是动态划分并管理用户分配好的内存区间，主要是在用户需要使用大小不等的内存块的场景中使用，当用户需要分配内存时，可以通过操作系统的内存申请函数索取指定大小内存块，一旦使用完毕，通过动态内存释放函数归还所占用内存，使之可以重复使用（`heap_1.c` 的内存管理除外）。
+
+例如我们需要定义一个 float 型数组：`floatArr[]`;
+
+但是，在使用数组的时候，总有一个问题困扰着我们：数组应该有多大？在很多的情况下，你并不能确定要使用多大的数组，可能为了避免发生错误你就需要把数组定义得足够大。即使你知道想利用的空间大小，但是如果因为某种特殊原因空间利用的大小有增加或者减少，你又必须重新去修改程序，扩大数组的存储范围。这种分配固定大小的内存分配方法称之为静态内存分配。这种内存分配的方法存在比较严重的缺陷，在大多数情况下会浪费大量的内存空间，在少数情况下，当你定义的数组不够大时，可能引起下标越界错误，甚至导致严重后果。
+
+我们用动态内存分配就可以解决上面的问题。所谓动态内存分配就是指在程序执行的过程中动态地分配或者回收存储空间的分配内存的方法。动态内存分配不象数组等静态内存分配方法那样需要预先分配存储空间，而是由系统根据程序的需要即时分配，且分配的大小就是程序要求的大小。
+
+### 11.3 内存管理方案详解
+
+FreeRTOS 规定了内存管理的函数接口，但是不管其内部的内存管理方案是怎么实现的，所以，FreeRTOS 可以提供多个内存管理方案，下面，就一起看看各个内存管理方案的区别。
+
+```c
+void *pvPortMalloc( size_t xSize ); //内存申请函数
+void vPortFree( void *pv ); //内存释放函数
+void vPortInitialiseBlocks( void ); //初始化内存堆函数
+size_t xPortGetFreeHeapSize( void ); //获取当前未分配的内存堆大小
+size_t xPortGetMinimumEverFreeHeapSize( void ); //获取未分配的内存堆历史最小值
+```
+
+FreeRTOS 提供的内存管理都是从内存堆中分配内存的。从前面学习的过程中，我们也知道，创建任务、消息队列、事件等操作都使用到分配内存的函数，这是系统中默认使用内存管理函数从内存堆中分配内存给系统核心组件使用。
+
+对于 `heap_1.c`、`heap_2.c` 和 `heap_4.c` 这三种内存管理方案，内存堆实际上是一个很大的数组， 定义为 `static uint8_t ucHeap[ configTOTAL_HEAP_SIZE]` ， 而宏定义 configTOTAL_HEAP_SIZE 则表示系统管理内存大小，单位为字，在`FreeRTOSConfig.h` 中由用户设定。
+
+对于 `heap_3.c` 这种内存管理方案，它封装了 C 标准库中的 `malloc()` 和 `free()` 函数，封装后的 `malloc()` 和 `free()` 函数具备保护，可以安全在嵌入式系统中执行。因此，用户需要通过编译器或者启动文件设置堆空间。
+
+`heap_5.c` 方案允许用户使用多个非连续内存堆空间，每个内存堆的起始地址和大小由用户定义。这种应用其实还是很大的，比如做图形显示、GUI 等，可能芯片内部的 RAM 是不够用户使用的，需要外部 SDRAM，那这种内存管理方案则比较合适。
+
+#### 11.3.1 heap_1.c
+
+`heap_1.c` 管理方案是 FreeRTOS 提供所有内存管理方案中最简单的一个，<u>它只能申请内存而不能进行内存释放，并且申请内存的时间是一个常量</u>，这样子对于要求安全的嵌入式设备来说是最好的，因为不允许内存释放，就不会产生内存碎片而导致系统崩溃，但是也有缺点，那就是内存利用率不高，某段内存只能用于内存申请的地方，即使该内存只使用一次，也无法让系统回收重新利用。
+
+实际上，大多数的嵌入式系统并不会经常动态申请与释放内存，一般都是在系统完成的时候，就一直使用下去，永不删除，所以这个内存管理方案实现简洁、安全可靠，使用的非常广泛。
+
+`heap1.c` 方案具有以下特点：
+
+1. 用于从不删除任务、队列、信号量、互斥量等的应用程序（实际上大多数使用 FreeRTOS 的应用程序都符合这个条件）。
+2. 函数的执行时间是确定的并且不会产生内存碎片。
+
+`heap_1.c` 管理方案使用两个静态变量对系统管理的内存进行跟踪内存分配：
+
+```c
+static size_t xNextFreeByte = ( size_t ) 0;
+static uint8_t *pucAlignedHeap = NULL;
+```
+
+变量 `xNextFreeByte` 用来定位下一个空闲的内存堆位置。真正的运作过程是记录已经被分配的内存大小，在每次申请内存成功后，都会增加申请内存的字节数目。因为内存堆实际上是一个大数组，我们只需要知道已分配内存的大小，就可以用它作为偏移量找到未分配内存的起始地址。
+
+静态变量 `pucAlignedHeap` 是一个指向对齐后的内存堆起始地址，我们使用一个数组作为堆内存，但是数组的起始地址并不一定是对齐的内存地址，所以我们需要得到 FreeRTOS 管理的内存空间对齐后的起始地址，并且保存在静态变量 `pucAlignedHeap` 中。为什么要对齐？这是因为大多数硬件访问内存对齐的数据速度会更快。为了提高性能，FreeRTOS 会进行对齐操作，不同的硬件架构的内存对齐操作可能不一样，对于 Cortex-M3 架构，进行 8 字节对齐。
+
+下面一起来看看 `heap_1.c` 方案中的内存管理相关函数的实现过程。
+
+##### 1. 内存申请函数 pvPortMalloc()
+
+内存申请函数就是用于申请一块用户指定大小的内存空间，当系统管理的内存空间满足用户需要的大小的时候，就能申请成功，并且返回内存空间的起始地址。
+
+```
+
+```
+
+在使用内存申请函数之前， 需要将管理的内存进行初始化， 需要将变量 `pucAlignedHeap` 指向内存域第一个地址对齐处，因为系统管理的内存其实是一个大数组，而编译器为这个数组分配的起始地址是随机的，不一定符合系统的对齐要求，这时候要进行内存地址对齐操作。比如数组 `ucHeap` 的地址从 0x20000123 处开始，系统按照 8 字节对齐，则对齐后系统管理的内存示意图具体见下图：
+
+![image-20241128224058435](.assets/image-20241128224058435.png)
+
+
+
+在内存对齐完成后，用户想要申请一个 30 字节大小的内存，那么按照系统对齐的要求，我们会申请到 32 个字节大小的内存空间，即使我们只需要30 字节的内存，申请完成的示意图具体见下图：
+
+![image-20241128224131023](.assets/image-20241128224131023.png)
+
+##### 2. 其他函数
+
+其实 `heap_1.c` 方案还有一些其他函数，只不过基本没啥用，就简单说说，`vPortFree()` 这个函数其实什么都没做，因为`heap_1.c` 采用的内存管理算法中不支持释放内存。`vPortInitialiseBlocks()` 仅仅将静态局部变量 `xNextFreeByte` 设置为 0，表示内存没有被申请。`xPortGetFreeHeapSize()` 则是获取当前未分配的内存堆大小，这个函数通常用于检查我们设置的内存堆是否合理，通过这个函数可以估计出最坏情况下需要多大的内存堆，以便合理的节省内存资源。
+
+#### 11.3.2 heap_2.c
+
+`heap_2.c` 方案与 `heap_1.c` 方案采用的内存管理算法不一样，它采用一种最佳匹配算法 (best fit algorithm)，比如我们申请100 字节的内存，而可申请内存中有三块对应大小 200 字节， 500 字节和 1000 字节大小的内存块，按照算法的最佳匹配，这时候系统会把 200 字节大小的内存块进行分割并返回申请内存的起始地址，剩余的内存则插回链表留待下次申请。`heap_2.c` 方案支持释放申请的内存，但是它不能把相邻的两个小的内存块合成一个大的内存块，对于每次申请内存大小都比较固定的，这个方式是没有问题的，而对于每次申请并不是固定内存大小的则会造成内存碎片，后面要讲解的 `heap_4.c` 方案采用的内存管理算法能解决内存碎片的问题，可以把这些释放的相邻的小的内存块合并成一个大的内存块。
+
+同样的，内存分配时需要的总的内存堆空间由文件 `FreeRTOSConfig.h` 中的宏 configTOTAL_HEAP_SIZE 配置，单位为字。通过调用函数 `xPortGetFreeHeapSize()` 我们可以知道还剩下多少内存没有使用，但是并不包括内存碎片，这样一来我们可以实时的调整和优化 configTOTAL_HEAP_SIZE 的大小。
+
+`heap_2.c` 方案具有以下特点：
+
+1. 可以用在那些反复的删除任务、队列、信号量、等内核对象且不担心内存碎片的应用程序。
+2. 如果我们的应用程序中的队列、任务、信号量、等工作在一个不可预料的顺序，这样子也有可能会导致内存碎片。
+3. 具有不确定性，但是效率比标准 C 库中的 `malloc` 函数高得多
+4. 不能用于那些内存分配和释放是随机大小的应用程序。
+
+`heap_2.c` 方案与 `heap_1` 方案在内存堆初始化的时候操作都是一样的，在内存中开辟了一个静态数组作为堆的空间，大小由用户定义，然后进行字节对齐处理。
+
+`heap_2.c` 方案<u>采用链表的数据结构记录空闲内存块</u>，将所有的空闲内存块组成一个空闲内存块链表，FreeRTOS 采用 2 个`BlockLink_t` 类型的局部静态变量 xStart、xEnd 来标识空闲内存块链表的起始位置与结束位置，空闲内存块链表结构体具体见下面代码:
+
+```c
+typedef struct A_BLOCK_LINK {
+    struct A_BLOCK_LINK *pxNextFreeBlock;
+    size_t xBlockSize;
+} BlockLink_t;
+```
+
+`pxNextFreeBlock` 成员变量是指向下一个空闲内存块的指针。
+`xBlockSize` 用于记录申请的内存块的大小，包括链表结构体大小。
+
+##### 1. 内存申请函数 pvPortMalloc()
+
+`heap_2.c` 内存管理方案采用最佳匹配算法管理内存，系统会先从内存块空闲链表头开始进行遍历，查找符合用户申请大小的内存块（内存块空闲链表按内存块大小升序排列，所以最先返回的的块一定是最符合申请内存大小，所谓的最匹配算法就是这个意思来的）。当找到内存块的时候，返回该内存块偏移 heapSTRUCT_SIZE 个字节后的地址，因为在每块内存块前面预留的节点是用于记录内存块的信息，用户不需要也不允许操作这部分内存。
+
+在申请内存成功的同时系统还会判断当前这块内存是否有剩余（大于一个链表节点所需内存空间），这样子就表示剩下的内存块还是能存放东西的，也要将其利用起来。如果有剩余的内存空间，系统会将内存块进行分割，在剩余的内存块头部添加一个内存节点，并且完善该空闲内存块的信息，然后将其按内存块大小插入内存块空闲链表中，供下次分配使用，其中 `prvInsertBlockIntoFreeList()` 这个函数就是把节点按大小插入到链表中。下面一起看看源码是怎么实现的，具体见下面代码:
+
+```
+
+```
+
+至此，，空闲内存块的初始化就分析完成，将内存块以链表的形式去管理，初始化完成示意图具体见图：
+
+<img src=".assets/image-20241128224844700.png" alt="image-20241128224844700" style="zoom: 80%;" />
+
+随着内存申请，越来越多申请的内存块脱离空闲内存链表，但链表仍是以 xStart 节点开头以 xEnd 节点结尾，空闲内存块链表根据空闲内存块的大小进行排序。每当用户申请一次内存的时候，系统都要分配一个 `BlockLink_t` 类型结构体空间，用于保存申请的内存块信息，并且每个内存块在申请成功后会脱离空闲内存块链表，申请两次后的内存示意图具体见图<img src=".assets/image-20241128224948503.png" alt="image-20241128224948503" style="zoom:80%;" />
+
+##### 2. 内存释放函数 vPortFree()
+
+分配内存的过程简单，那么释放内存的过程更简单，只需要向内存释放函数中传入要释放的内存地址，那么系统会自动向前索引到对应链表节点，并且取出这块内存块的信息，将这个节点插入到空闲内存块链表中，将这个内存块归还给系统，下面来看看`vPortFree()` 的源码：
+
+```
+
+```
+
+<img src=".assets/image-20241128225058111.png" alt="image-20241128225058111" style="zoom:80%;" />
+
+
+
+<img src=".assets/image-20241128225116291.png" alt="image-20241128225116291" style="zoom:80%;" />
+
+从内存的申请与释放看来，`heap_2.c` 方案采用的内存管理算法虽然是高效但还是有缺陷的，由于在释放内存时不会将相邻的内存块合并，所以这可能造成内存碎片，当然并不是说这种内存管理算法不好，只不过对使用的条件比较苛刻，要求用户每次创建或释放的任务、队列等必须大小相同如果分配或释放的内存是随机的，绝对不可以用这种内存管理策略；如果申请和释放的顺序不可预料，那也很危险。举个例子，假设用户先申请 128 字节内存，然后释放，此时系统释放的128 字节内存可以重复被利用；如果用户再接着申请 64k 的字节内存，那么一个本来 128 字节的大块就会被分为两个64 字节的小块，如果这种情况经常发生，就会导致每个空闲块都可能很小，最终在申请一个大块时就会因为没有合适的空闲内存块而申请失败，这并不是因为总的空闲内存不足，而是无法申请到连续可以的大块内存。
+
+#### 11.3.3 heap_3.c
+
+`heap_3.c` 方案只是简单的封装了标准 C 库中的 `malloc()` 和 `free()` 函数，并且能满足常用的编译器。重新封装后的 `malloc()` 和 `free()` 函数具有保护功能，采用的封装方式是操作内存前挂起调度器、完成后再恢复调度器。
+
+`heap_3.c` 方案具有以下特点：
+
+1. 需要链接器设置一个堆，`malloc( )`和 `free()`函数由编译器提供。
+2. 具有不确定性。
+3. 很可能增大 RTOS 内核的代码大小。
+
+要注意的是在使用 `heap_3.c` 方案时， `FreeRTOSConfig.h` 文件中的 configTOTAL_HEAP_SIZE 宏定义不起作用。在STM32 系列的工程中，这个由编译器定义的堆都在启动文件里面设置，单位为字节，我们具体以 STM32F10x 系列为例，具体见下图。而其它系列的都差不多。
+
+![image-20241129134506893](.assets/image-20241129134506893.png)
+
+`heap_3.c` 方案中的内存申请与释放相关函数源码过于简单，就不再讲述。
+
+`pvPortMalloc()` 源码（`heap_3.c`）
+
+```
+
+```
+
+`vPortFree()` 源码（`heap_3.c`）
+
+```
+
+```
+
+#### 11.3.4 heap_4.c
+
+`heap_4.c` 方案与 `heap_2.c` 方案一样都采用最佳匹配算法来实现动态的内存分配，但是不一样的是 `heap_4.c` 方案还包含了一种合并算法，能把相邻的空闲的内存块合并成一个更大的块，这样可以减少内存碎片。`heap_4.c` 方案特别适用于移植层中可以直接使用 `pvPortMalloc()` 和 `vPortFree()` 函数来分配和释放内存的代码。
+
+内存分配时需要的总的堆空间由文件 `FreeRTOSConfig.h` 中的宏 configTOTAL_HEAP_SIZE 配置，单位为字。通过调用函数`xPortGetFreeHeapSize()` 我们以知道还剩下多少内存没有使用，但是并不包括内存碎片。这样一来我们可以实时的调整和优化configTOTAL_HEAP_SIZE 的大小。
+
+`heap_4.c` 方案的空闲内存块也是以单链表的形式连接起来的，`BlockLink_t` 类型的局部静态变量 `xStart` 表示链表头，但`heap_4.c` 内存管理方案的链表尾部则保存在内存堆空间最后位置，并使用 `BlockLink_t` 指针类型局部静态变量 `pxEnd` 指向这个区域（而 `heap_2.c` 内存管理方案则使用 `BlockLink_t` 类型的静态变量 `xEnd` 表示链表尾）
+
+`heap_4.c` 内存管理方案的空闲块链表<u>不是以内存块大小进行排序的，而是以内存块起始地址大小排序</u>，内存地址小的在前，地址大的在后，因为 `heap_4.c` 方案还有一个内存合并算法，在释放内存的时候，假如相邻的两个空闲内存块在地址上是连续的，那么就可以合并为一个内存块，这也是为了适应合并算法而作的改变。
+
+`heap_4.c` 方案具有以下特点：
+
+1. 可用于重复删除任务、队列、信号量、互斥量等的应用程序
+2. 可用于分配和释放随机字节内存的应用程序，但并不像 `heap2.c` 那样产生严重的内存碎片。
+3. 具有不确定性，但是效率比标准 C 库中的 `malloc` 函数高得多。
+
+##### 1. 内存申请函数 pvPortMalloc()
+
+`heap_4.c` 方案的内存申请函数与 `heap_2.c` 方案的内存申请函数大同小异，同样是从链表头 `xStart` 开始遍历查找合适的内存块，如果某个空闲内存块的大小能容得下用户要申请的内存，则将这块内存取出用户需要内存空间大小的部分返回给用户，剩下的内存块组成一个新的空闲块，按照空闲内存块起始地址大小顺序插入到空闲块链表中，内存地址小的在前，内存地址大的在后。在插入到空闲内存块链表的过程中，系统还会执行合并算法将地址相邻的内存块进行合并：判断这个空闲内存块是相邻的空闲内存块合并成一个大内块，如果可以则合并，合并算法是 `heap_4.c` 内存管理方案和 `heap_2.c` 内存管理方案最大的不同之处，这样一来，会导致的内存碎片就会大大减少，内存管理方案适用性就很强，能一样随机申请和释放内存的应用中，灵活性得到大大的提高，下面来看看 `heap_4.c` 的内存申请源码：
+
+```
+
+```
+
+在读懂源码之前，我们先记住下面这几个变量的含义：
+
+- `xFreeBytesRemaining`：表示当前系统中未分配的内存堆大小。
+- `xMinimumEverFreeBytesRemaining`：表示未分配内存堆空间历史最小的内存值。只有记录未分配内存堆的最小值，才能知道最坏情况下内存堆的使用情况。
+- `xBlockAllocatedBit`：这个变量在内存堆初始化的时候被初始化，初始化将它能表示的数值的最高位置 1。比如对于 32 位系统，这个变量被初始化为 0x80000000（最高位为1）。`heap_4.c` 内存管理方案使用 `xBlockAllocatedBit` 来标识一个内存块是否已经被分配使用了（是否为空闲内存块），如果内存块已经被分配出去，则该内存块上的链表节点的成员变量 `xBlockSize` 会按位或上这个变量（即 xBlockSize 最高位置1），而在释放一个内存块时，则会把 `xBlockSize` 的最高位清零，表示内存块是空闲的。
+
+`heap_4.c` 内存初始化完成示意图具体见图：
+
+![image-20241129143953673](.assets/image-20241129143953673.png)
+
+申请内存的常见情况：
+
+![image-20241129145058738](.assets/image-20241129145058738.png)
+
+内存申请函数其实很简单的，在申请 3 次内存完成之后的示意图具体见图：
+
+![image-20241129145117124](.assets/image-20241129145117124.png)
+
+##### 2. 内存释放函数 vPortFree()
+
+`heap_4.c` 内存管理方案的内存释放函数 `vPortFree()` 也比较简单，根据传入要释放的内存块地址，偏移之后找到链表节点，然后将这个内存块插入到空闲内存块链表中，在内存块插入过程中会执行合并算法，这个我们已经在内存申请中讲过了（而且合并算法多用于释放内存中）。最后是将这个内存块标志为 “空闲”（内存块节点的 `xBlockSize` 成员变量最高位清0）、再更新未分配的内存堆大小即可，下面来看看 `vPortFree()` 的源码实现过程：
+
+```
+
+```
+
+按照内存释放的过程，当我们释放一个内存时，<u>如果与它相邻的内存块都不是空闲的，那么该内存块并不会合并，只会被添加到空闲内存块链表中</u>，其过程示意图具体见下图。而如果某个时间段释放了另一个内存块，发现该<u>内存块前面有一个空闲内存块与它在地址上是连续的，那么这两个内存块会合并成一个大的内存块</u>，并插入空闲内存块链表中，其过程示意图具体见下图
+
+![image-20241129145343441](.assets/image-20241129145343441.png)
+
+![image-20241129145349710](.assets/image-20241129145349710.png)
+
+#### 11.3.5 heap_5.c
+
+`heap_5.c` 方案在实现动态内存分配时与 `heap4.c` 方案一样，采用最佳匹配算法和合并算法，并且允许内存堆跨越多个非连续的内存区，也就是允许在不连续的内存堆中实现内存分配，比如用户在片内 RAM 中定义一个内存堆，还可以在外部 SDRAM 再定义一个或多个内存堆，这些内存都归系统管理。
+
+`heap_5.c` 方案通过调用 `vPortDefineHeapRegions()` 函数来实现系统管理的内存初始化，在内存初始化未完成前不允许使用内存分配和释放函数。如创建 FreeRTOS 对象（任务、队列、信号量等）时会隐式的调用 `pvPortMalloc()` 函数。
+
+> [!caution]
+>
+> 使用 `heap_5.c` 内存管理方案创建任何对象前，要先调用 `vPortDefineHeapRegions()` 函数将内存初始化。
+
+`vPortDefineHeapRegions()` 函数只有一个形参，该形参是一个 `HeapRegion_t` 类型的结构体数组。`HeapRegion_t` 类型结构体在 `portable.h` 中定义。
+
+```c
+typedef struct HeapRegion {
+    /* 用于内存堆的内存块起始地址*/
+    uint8_t *pucStartAddress;
+    /* 内存块大小 */
+    size_t xSizeInBytes;
+} HeapRegion_t;
+```
+
+用户需要指定每个内存堆区域的起始地址和内存堆大小、将它们放在一个 `HeapRegion_t` 结构体类型数组中，这个数组必须用一个 NULL 指针和 0 作为结尾，起始地址必须从小到大排列。假设我们为内存堆分配两个内存块，第一个内存块大小为 0x10000
+字节，起始地址为 0x80000000；第二个内存块大小为 0xa0000 字节，起始地址为 0x90000000，`vPortDefineHeapRegions()` 函数使用实例具体见代码：
+
+```c
+/* 在内存中为内存堆分配两个内存块。
+   第一个内存块大小为0x10000 字节,起始地址为0x80000000,
+   第二个内存块大小为0xa0000 字节,起始地址为0x90000000。
+   起始地址为0x80000000 的内存块的起始地址更低,因此放到了数组的第一个位置。*/
+const HeapRegion_t xHeapRegions[] = {
+    { ( uint8_t * ) 0x80000000UL, 0x10000 },
+    { ( uint8_t * ) 0x90000000UL, 0xa0000 },
+    { NULL, 0 } /* 数组结尾 */
+};
+
+/* 向函数vPortDefineHeapRegions()传递形参 */
+vPortDefineHeapRegions( xHeapRegions );
+```
+
+用户在自定义好内存堆数组后，需要调用 `vPortDefineHeapRegions()` 函数初始化这些内存堆，系统会已一个空闲内存块链表的数据结构记录这些空闲内存，链表以 `xStart` 节点为开头，以 `pxEnd` 指针指向的位置结束。`vPortDefineHeapRegions()` 函数对内存的初始化与 `heap_4.c` 方案一样，在这里就不再重复赘述过程。以上面的内存堆数组为例，初始化完成后的内存堆示意图具体见图：
+
+![image-20241129145820671](.assets/image-20241129145820671.png)
+
+而对于 `heap_5.c` 方案的内存申请与释放函数，其实与 `heap_4.c` 方案是一样的，此处就不再重复赘述。
+
+### 11.4 内存管理实验
+
+内存管理实验使用 `heap_4.c` 方案进行内存管理测试，创建了两个任务，分别是 LED 任务与内存管理测试任务，内存管理测试任务进行申请内存或释放内存，当申请内存成功就像该内存写入一些数据，如当前系统的时间等信息，并且通过串口输出相关信息；LED 任务是将 LED 翻转，表示系统处于运行状态。在不需要再使用内存时，注意要及时释放该段内存，避免内存泄露。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define KEY1_EVENT (0x01 << 0)
+#define KEY2_EVENT (0x01 << 1)
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t AppTaskCreate_Handle = NULL;    /* 创建任务句柄 */
+static TaskHandle_t LED_Task_Handle = NULL;         /* LED_Task 任务句柄 */
+static TaskHandle_t KEY_Task_Handle = NULL;         /* KEY_Task 任务句柄 */
+
+SemaphoreHandle_t CountSem_Handle = NULL;          /* 信号量句柄 */
+
+uint8_t *Test_Ptr = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+static void AppTaskCreate(void);                  /* 用于创建任务 */
+static void LED_Task(void *pvParameters);        /* LED_Task 任务实现 */
+static void KEY_Task(void *pvParameters);       /* KEY_Task 任务实现 */
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xReturn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+
+    printf("\n- Program Start -\n");
+    
+    xReturn = xTaskCreate((TaskFunction_t )AppTaskCreate, 
+                          "AppTaskCreate", 
+                          512, 
+                          NULL, 
+                          1, 
+                          &AppTaskCreate_Handle);
+    if (pdPASS == xReturn)
+    {
+        printf("AppTaskCreate task create success!\n");
+        vTaskStartScheduler();
+    }
+    else 
+        printf("AppTaskCreate task create failed!\n");
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    printf("AppTaskCreate task is running!\n");
+    taskENTER_CRITICAL();
+    xReturn = xTaskCreate((TaskFunction_t )LED_Task, 
+                          "LED_Task", 
+                          512, 
+                          NULL, 
+                          2, 
+                          &LED_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("LED_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t )KEY_Task, 
+                          "KEY_Task", 
+                          512, 
+                          NULL, 
+                          3, 
+                          &KEY_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("KEY_Task task create success!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void LED_Task(void *pvParameters)
+{
+    while (1)
+    { 
+        __BSP_LED1_FICKER(1000);
+    }
+}
+
+static void KEY_Task(void *pvParameters)
+{
+    uint32_t g_memsize;
+    while (1) 
+    {
+        if (NULL == Test_Ptr)
+        {
+            // 获取当前内存大小
+            g_memsize = xPortGetFreeHeapSize();
+            printf("Current free heap size is %d bytes!\n", g_memsize);
+            printf("Start to malloc memory!\n");
+            Test_Ptr = (uint8_t *)pvPortMalloc(1024);
+            if (NULL != Test_Ptr)
+            {
+                printf("Malloc memory success!\n");
+                printf("Test_Ptr is %#x\n", (int)Test_Ptr);
+
+                // 获取当前内存剩余大小
+                g_memsize = xPortGetFreeHeapSize();
+                printf("Current free heap size is %d bytes!\n", g_memsize);
+
+                // 向 Test_Ptr 指向的内存写入数据: 当前系统时间
+                sprintf((char *)Test_Ptr, "Current system TickCount is %d\n", xTaskGetTickCount());
+                printf("The content of Test_Ptr is %s", (char *)Test_Ptr);
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+        else
+            printf("Please free the memory before apply again!\n");
+        
+        if (NULL != Test_Ptr)
+        {
+            printf("Start to free memory!\n");
+            vPortFree(Test_Ptr);
+            Test_Ptr = NULL;
+
+            // 获取当前内存剩余大小
+            g_memsize = xPortGetFreeHeapSize();
+            printf("Current free heap size is %d bytes!\n", g_memsize); 
+
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+        else
+            printf("Please malloc memory first!\n");
+
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
+
+## 十二. 中断管理
+
+### 12.1 异常与中断的基本概念
+
+异常是导致处理器脱离正常运行转向执行特殊代码的任何事件，如果不及时进行处理，轻则系统出错，重则会导致系统毁灭性瘫痪。所以正确地处理异常，避免错误的发生是提高软件鲁棒性（稳定性）非常重要的一环，对于实时系统更是如此。
+
+异常是指任何打断处理器正常执行，并且迫使处理器进入一个由有特权的特殊指令执行的事件。异常通常可以分成两类：同步异常和异步异常。由内部事件（像处理器指令运行产生的事件）引起的异常称为同步异常，例如造成被零除的算术运算引发一个异常，又如在某些处理器体系结构中，对于确定的数据尺寸必须从内存的偶数地址进行读和写操作。从一个奇数内存地址的读或写操作将引起存储器存取一个错误事件并引起一个异常（称为校准异常）。
+
+异步异常主要是指由于外部异常源产生的异常，是一个由外部硬件装置产生的事件引起的异步异常。同步异常不同于异步异常的地方是事件的来源，<u>同步异常事件是由于执行某些指令而从处理器内部产生的，而异步异常事件的来源是外部硬件装置</u>。例如按下设备某个按钮产生的事件。同步异常与异步异常的区别还在于，同步异常触发后，系统必须立刻进行处理而不能够依然执行原有的程序指令步骤；而异步异常则可以延缓处理甚至是忽略，例如按键中断异常，虽然中断异常触发了，但是系统可以忽略它继续运行（同样也忽略了相应的按键事件）。
+
+中断，中断属于异步异常。所谓中断是指中央处理器CPU正在处理某件事的时候，外部发生了某一事件，请求CPU 迅速处理，CPU 暂时中断当前的工作，转入处理所发生的事件，处理完后，再回到原来被中断的地方，继续原来的工作，这样的过程称为中断。
+
+中断能打断任务的运行，无论该任务具有什么样的优先级，因此中断一般用于处理比较紧急的事件，而且只做简单处理，例如标记该事件，在使用 FreeRTOS 系统时，一般建议使用信号量、消息或事件标志组等标志中断的发生，将这些内核对象发布给处理任务，处理任务再做具体处理。
+
+通过中断机制，在外设不需要 CPU 介入时，CPU 可以执行其他任务，而当外设需要 CPU 时通过产生中断信号使 CPU 立即停止当前任务转而来响应中断请求。这样可以使 CPU 避免把大量时间耗费在等待、查询外设状态的操作上，因此将大大提高系统实时性以及执行效率。
+
+此处读者要知道一点，FreeRTOS 源码中有许多处临界段的地方，临界段虽然保护了关键代码的执行不被打断，但也会影响系统的实时，任何使用了操作系统的中断响应都不会比裸机快。比如，某个时候有一个任务在运行中，并且该任务部分程序将中断屏蔽掉，也就是进入临界段中，这个时候如果有一个紧急的中断事件被触发，这个中断就会被挂起，不能得到及时响应，必须等到中断开启才可以得到响应，如果屏蔽中断时间超过了紧急中断能够容忍的限度，危害是可想而知的。所以，操作系统的中断在某些时候会有适当的中断延迟，因此调用中断屏蔽函数进入临界段的时候，也需快进快出。当然 FreeRTOS 也能允许一些高优先级的中断不被屏蔽掉，能够及时做出响应，不过这些中断就不受系统管理，也不允许调用 FreeRTOS 中与中断相关的任何 API 函数接口。
+
+FreeRTOS 的中断管理支持：
+
+- 开/关中断。
+- 恢复中断。
+- 中断使能。
+- 中断屏蔽。
+- 可选择系统管理的中断优先级。
+
+#### 12.1.1 中断的介绍
+
+与中断相关的硬件可以划分为三类：外设、中断控制器、CPU 本身。
+
+- **外设**：当外设需要请求 CPU 时，产生一个中断信号，该信号连接至中断控制器。
+- **中断控制器**：中断控制器是 CPU 众多外设中的一个，它一方面接收其他外设中断信号的输入，另一方面，它会发出中断信号给CPU。可以通过对中断控制器编程实现对中断源的优先级、触发方式、打开和关闭源等设置操作。在 Cortex-M 系列控制器中常用的中断控制器是 NVIC（内嵌向量中断控制器 Nested Vectored Interrupt Controller）。
+- **CPU**：CPU 会响应中断源的请求，中断当前正在执行的任务，转而执行中断处理程序。NVIC 最多支持 240 个中断，每个中断最多 256 个优先级。
+
+#### 12.1.2 和中断相关的名词解释
+
+**中断号**：每个中断请求信号都会有特定的标志，使得计算机能够判断是哪个设备提出的中断请求，这个标志就是中断号。
+
+**中断请求**：“紧急事件” 需向 CPU 提出申请，要求 CPU 暂停当前执行的任务，转而处理该 “紧急事件”，这一申请过程称为中断请求。
+
+**中断优先级**：为使系统能够及时响应并处理所有中断，系统根据中断时间的重要性和紧迫程度，将中断源分为若干个级别，称作中断优先级。
+
+**中断处理程序**：当外设产生中断请求后，CPU 暂停当前的任务，转而响应中断申请，即执行中断处理程序。
+
+**中断触发**：中断源发出并送给CPU 控制信号，将中断触发器置 “1”，表明该中断源产生了中断，要求 CPU 去响应该中断，CPU 暂停当前任务，执行相应的中断处理程序。
+
+**中断触发类型**：外部中断申请通过一个物理信号发送到 NVIC，可以是电平触发或边沿触发。
+
+**中断向量**：中断服务程序的入口地址。
+
+**中断向量表**：存储中断向量的存储区，中断向量与中断号对应，中断向量在中断向量表中按照中断号顺序存储。
+
+**临界段**：代码的临界段也称为临界区，一旦这部分代码开始执行，则不允许任何中断打断。为确保临界段代码的执行不被中断，在进入临界段之前须关中断，而临界段代码执行完毕后，要立即开中断。
+
+### 12.2 中断管理的运作机制
+
+当中断产生时，处理机将按如下的顺序执行：
+
+1. 保存当前处理机状态信息
+2. 载入异常或中断处理函数到 PC 寄存器
+3. 把控制权转交给处理函数并开始执行
+4. 当处理函数执行完成时，恢复处理器状态信息
+5. 从异常或中断中返回到前一个程序执行点
+
+中断使得 CPU 可以在事件发生时才给予处理，而不必让 CPU 连续不断地查询是否有相应的事件发生。通过两条特殊指令：关中断和开中断可以让处理器不响应或响应中断，在关闭中断期间，通常处理器会把新产生的中断挂起，当中断打开时立刻进行响应，所以会有适当的延时响应中断，故用户在进入临界区的时候应快进快出。
+
+中断发生的环境有两种情况：在任务的上下文中，在中断服务函数处理上下文中。
+
+- 任务在工作的时候，如果此时发生了一个中断，无论中断的优先级是多大，都会打断当前任务的执行，从而转到对应的中断服务函数中执行，其过程具体见下图
+
+    ![image-20241129181937094](.assets/image-20241129181937094.png)
+
+    - (1)、(3)：在任务运行的时候发生了中断，那么中断会打断任务的运行，那么操作系统将先保存当前任务的上下文环境，转而去处理中断服务函数。
+    - (2)、(4)：当且仅当中断服务函数处理完的时候才恢复任务的上下文环境，继续运行任务。
+
+- 在执行中断服务例程的过程中，如果有更高优先级别的中断源触发中断，由于当前处于中断处理上下文环境中，根据不同的处理器构架可能有不同的处理方式，比如新的中断等待挂起直到当前中断处理离开后再行响应；或新的高优先级中断打断当前中断处理过程，而去直接响应这个更高优先级的新中断源。后面这种情况，称之为中断嵌套。在硬实时环境中，前一种情况是不允许发生的，不能使响应中断的时间尽量的短。而在软件处理（软实时环境）上，FreeRTOS 允许中断嵌套，即在一个中断服务例程期间，处理器可以响应另外一个优先级更高的中断，过程入下图所示。
+
+    ![image-20241129182123290](.assets/image-20241129182123290.png)
+
+    当中断 1 的服务函数在处理的时候发生了中断 2，由于中断 2 的优先级比中断 1 更高，所以发生了中断嵌套，那么操作系统将先保存当前中断服务函数的上下文环境，并且转向处理中断 2，当且仅当中断 2 执行完的时候 (2)，才能继续执行中断 1
+
+### 12.3 中断延迟的概念
+
+即使操作系统的响应很快了，但对于中断的处理仍然存在着中断延迟响应的问题，我们称之为中断延迟(Interrupt Latency) 。
+
+中断延迟是指<u>从硬件中断发生到开始执行中断处理程序第一条指令之间的这段时间</u>。也就是：系统接收到中断信号到操作系统作出响应，并完成换到转入中断服务程序的时间。也可以简单地理解为：（外部）硬件（设备）发生中断，到系统执行中断服务子程序（ISR）的第一条指令的时间。
+
+中断的处理过程是：外界硬件发生了中断后，CPU 到中断处理器读取中断向量，并且查找中断向量表，找到对应的中断服务子程序（ISR）的首地址，然后跳转到对应的 ISR 去做相应处理。这部分时间，我称之为：<u>识别中断时间</u>。
+
+在允许中断嵌套的实时操作系统中，中断也是基于优先级的，允许高优先级中断抢断正在处理的低优先级中断，所以，如果当前正在处理更高优先级的中断，即使此时有低优先级的中断，也系统不会立刻响应，而是等到高优先级的中断处理完之后，才会响应。而即使在不支持中断嵌套，即中断是没有优先级的，中断是不允许被中断的，所以，如果当前系统正在处理一个中断，而此时另一个中断到来了，系统也是不会立即响应的，而只是等处理完当前的中断之后，才会处理后来的中断。此部分时间，我称其为：<u>等待中断打开时间</u>。
+
+在操作系统中，很多时候我们会主动进入临界段，系统不允许当前状态被中断打断，故而在临界区发生的中断会被挂起，直到退出临界段时候打开中断。此部分时间，我称其为：<u>关闭中断时间</u>。
+
+中断延迟可以定义为，从中断开始的时刻到中断服务例程开始执行的时刻之间的时间段。==中断延迟 = 识别中断时间 + [等待中断打开时间] + [关闭中断时间]==。
+
+> [!note]
+>
+> “[ ]” 的时间是不一定都存在的，此处为最大可能的中断延迟时间。
+
+### 12.4 中断管理的应用场景
+
+中断在嵌入式处理器中应用非常之多，没有中断的系统不是一个好系统，因为有中断，才能启动或者停止某件事情，从而转去做另一间事情。我们可以举一个日常生活中的例子来说明，假如你正在给朋友写信，电话铃响了，这时你放下手中的笔去接电话，通话完毕再继续写信。这个例子就表现了中断及其处理的过程：电话铃声使你暂时中止当前的工作，而去处理更为急需处理的事情——接电话，当把急需处理的事情处理完毕之后，再回过头来继续原来的事情。在这个例子中，电话铃声就可以称为 “中断请求”，而你暂停写信去接电话就叫作 “中断响应”，那么接电话的过程就是 “中断处理”。由此我们可以看出，在计算机执行程序的过程中，由于出现某个特殊情况(或称为“特殊事件”)，使得系统暂时中止现行程序，而转去执行处理这一特殊事件的程序，处理完毕之后再回到原来程序的中断点继续向下执行。
+
+为什么说没有中断的系统不是好系统呢？我们可以再举一个例子来说明中断的作用。假设有一个朋友来拜访你，但是由于不知何时到达，你只能在门口等待，于是什么事情也干不了；但如果在门口装一个门铃，你就不必在门口等待而可以在家里去做其他的工作，朋友来了按门铃通知你，这时你才中断手中的工作去开门，这就避免了不必要的等待。CPU 也是一样，如果时间都浪费在查询的事情上，那这个 CPU 啥也干不了，要他何用。在嵌入式系统中合理利用中断，能更好利用 CPU 的资源。
+
+### 12.5 中断管理讲解
+
+ARM Cortex-M 系列内核的中断是由硬件管理的，而 FreeRTOS 是软件，它并不接管由硬件管理的相关中断（接管简单来说就是，所有的中断都由 RTOS 的软件管理，硬件来了中断时，由软件决定是否响应，可以挂起中断，延迟响应或者不响应），只支持简单的开关中断等，所以 ==FreeRTOS 中的中断使用其实跟裸机差不多的，需要我们自己配置中断，并且使能中断，编写中断服务函数，在中断服务函数中使用内核 IPC 通信机制==，<u>一般建议使用信号量、消息或事件标志组等标志事件的发生，将事件发布给处理任务，等退出中断后再由相关处理任务具体处理中断。</u>
+
+用户可以自定义配置系统可管理的最高中断优先级的宏定义 configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY ， 它是用于配置内核中的 `basepri` 寄存器的，<u>当 `basepri` 设置为某个值的时候，NVIC 不会响应比该优先级低的中断，而优先级比之更高的中断则不受影响</u>。就是说当这个宏定义配置为 5 的时候，中断优先级数值在 0、1、2、3、4 的这些中断是不受 FreeRTOS 屏蔽的，也就是说即使在系统进入临界段的时候，这些中断也能被触发而不是等到退出临界段的时候才被触发，当然，这些中断服务函数中也不能调用 FreeRTOS 提供的 API 函数接口，而中断优先级在 5 到 15 的这些中断是可以被屏蔽的，也能安全调用 FreeRTOS 提供的 API 函数接口。
+
+ARM Cortex-M NVIC 支持中断嵌套功能：当一个中断触发并且系统进行响应时，处理器硬件会将当前运行的部分上下文寄存器自动压入中断栈中，这部分的寄存器包括 PSR，R0，R1，R2，R3 以及 R12 寄存器。当系统正在服务一个中断时，如果有一个更高优先级的中断触发，那么处理器同样的会打断当前运行的中断服务例程，然后把老的中断服务例程上下文的 PSR，R0，R1，R2，R3 和 R12 寄存器自动保存到中断栈中。<u>这些部分上下文寄存器保存到中断栈的行为完全是==硬件行为==，这一点是与其他 ARM 处理器最大的区别（以往都需要依赖于软件保存上下文）。</u>
+
+另外，在ARM Cortex-M 系列处理器上，所有中断都采用中断向量表的方式进行处理，即当一个中断触发时，处理器将直接判定是哪个中断源，然后直接跳转到相应的固定位置进行处理。而在ARM7、ARM9 中，一般是先跳转进入 IRQ 入口，然后再由软件进行判断是哪个中断源触发，获得了相对应的中断服务例程入口地址后，再进行后续的中断处理。ARM7、ARM9 的好处在于，所有中断它们都有统一的入口地址，便于 OS 的统一管理。而 ARM Cortex-M 系列处理器则恰恰相反，每个中断服务例程必须排列在一起放在统一的地址上（这个地址必须要设置到 NVIC 的中断向量偏移寄存器中）。中断向量表一般由一个数组定义（或在起始代码中给出），在 STM32 上，默认采用起始代码给出：具体见下面代码。
+
+```s
+__Vectors DCD __initial_sp ; Top of Stack
+		DCD Reset_Handler ; Reset Handler
+		DCD NMI_Handler ; NMI Handler
+		DCD HardFault_Handler ; Hard Fault Handler
+		DCD MemManage_Handler ; MPU Fault Handler
+		DCD BusFault_Handler ; Bus Fault Handler
+		DCD UsageFault_Handler ; Usage Fault Handler
+		DCD 0 ; Reserved
+		DCD 0 ; Reserved
+		DCD 0 ; Reserved
+		DCD 0 ; Reserved
+		DCD SVC_Handler ; SVCall Handler
+DCD DebugMon_Handler ; Debug Monitor Handler
+		DCD 0 ; Reserved
+		DCD PendSV_Handler ; PendSV Handler
+		DCD SysTick_Handler ; SysTick Handler
+		
+		; External Interrupts
+		DCD WWDG_IRQHandler ; Window Watchdog
+		DCD PVD_IRQHandler ; PVD through EXTI Line detect
+		DCD TAMPER_IRQHandler ; Tamper
+		DCD RTC_IRQHandler ; RTC
+		DCD FLASH_IRQHandler ; Flash
+		DCD RCC_IRQHandler ; RCC
+		DCD EXTI0_IRQHandler ; EXTI Line 0
+		DCD EXTI1_IRQHandler ; EXTI Line 1
+		DCD EXTI2_IRQHandler ; EXTI Line 2
+		DCD EXTI3_IRQHandler ; EXTI Line 3
+		DCD EXTI4_IRQHandler ; EXTI Line 4
+		DCD DMA1_Channel1_IRQHandler ; DMA1 Channel 1
+		DCD DMA1_Channel2_IRQHandler ; DMA1 Channel 2
+		DCD DMA1_Channel3_IRQHandler ; DMA1 Channel 3
+		DCD DMA1_Channel4_IRQHandler ; DMA1 Channel 4
+		DCD DMA1_Channel5_IRQHandler ; DMA1 Channel 5
+		DCD DMA1_Channel6_IRQHandler ; DMA1 Channel 6
+		DCD DMA1_Channel7_IRQHandler ; DMA1 Channel 7
+
+		………
+```
+
+ FreeRTOS 在 Cortex-M 系列处理器上也遵循与裸机中断一致的方法，当用户需要使用自定义的中断服务例程时，只需要定义相同名称的函数覆盖弱化符号即可。所以，==FreeRTOS 在 Cortex-M 系列处理器的中断控制其实与裸机没什么差别。==
+
+### 12.6 中断管理实验
+
+该实验有两个任务，一个任务通过定时器中断每秒释放一个二值信号量控制 LED 任务进行 LED 闪烁，另一个任务通过串口中断配合信号量实现不定长串口消息接收。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "dma.h"
+#include "tim.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t AppTaskCreate_Handle = NULL; /* 创建任务句柄 */
+static TaskHandle_t LED_Task_Handle = NULL;      /* LED_Task 任务句柄 */
+static TaskHandle_t Receive_Task_Handle = NULL;  /* Receive_Task 任务句柄 */
+
+SemaphoreHandle_t BinarySem1_Handle = NULL; /* 二进制信号量句柄 */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+static void AppTaskCreate(void);              /* 用于创建任务 */
+static void LED_Task(void *pvParameters);     /* LED_Task 任务实现 */
+static void Receive_Task(void *pvParameters); /* 接收消息任务 */
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xReturn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_DMA_Init();
+    MX_USART1_UART_Init();
+    MX_TIM7_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+    HAL_TIM_Base_Start_IT(&htim7);
+    __BSP_USART_DMA_RECEIVE_START();
+
+    printf("\n- Program Start -\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                          "AppTaskCreate",
+                          512,
+                          NULL,
+                          1,
+                          &AppTaskCreate_Handle);
+    if (pdPASS == xReturn)
+    {
+        printf("AppTaskCreate task create success!\n");
+        vTaskStartScheduler();
+    }
+    else
+        printf("AppTaskCreate task create failed!\n");
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    taskENTER_CRITICAL();
+
+    BinarySem1_Handle = xSemaphoreCreateBinary();
+    if (NULL != BinarySem1_Handle)
+        printf("BinarySem1_Handle create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)LED_Task,
+                          "LED_Task",
+                          512,
+                          NULL,
+                          2,
+                          &LED_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("LED_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)Receive_Task,
+                          "Receive_Task",
+                          512,
+                          NULL,
+                          3,
+                          &Receive_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("Receive_Task task create success!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void LED_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdPASS;
+    while (1)
+    {
+        xReturn = xSemaphoreTake(BinarySem1_Handle,
+                                 portMAX_DELAY);
+        if (pdPASS == xReturn)
+        {
+            __BSP_LED1_FICKER(100);
+        }
+    }
+}
+
+static void Receive_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdPASS;
+    while (1)
+    {
+        printf("Receive_Task is waiting for the semaphore...\n");
+        xReturn = xSemaphoreTake(USART_BinarySem_Handle,
+                                 portMAX_DELAY);
+        if (pdPASS == xReturn)
+        {
+            printf("Receive data: %s\n", rx_buffer);
+            BSP_UsartVar_Conduct();
+            __BSP_LED2_TOGGLE();
+        }
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+    if (htim->Instance == TIM7)
+    {
+        BaseType_t pxHigherPriorityTaskWoken;
+        uint32_t ulReturn;
+        // 进入临界段,数据可嵌套
+        ulReturn = taskENTER_CRITICAL_FROM_ISR();
+        // 释放信号量
+        xSemaphoreGiveFromISR(BinarySem1_Handle,
+                              &pxHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
+
+        // 出临界段
+        taskEXIT_CRITICAL_FROM_ISR(ulReturn);
+    }
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
 
 
 
 
 
 
-## OTHER
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##  OTHER
 
 #### STM32 + FreeRTOS + Cpp 混合编程
 
@@ -8044,7 +11934,7 @@ void aFunction( EventGroupHandle_t xEventGroup )
         #endif
         ```
 
-2. **MSVC (Microsoft Visual C++)**：
+2. **MSVC (Microsoft Visua l C++)**：
 
     - `_MSC_VER`：表示版本号，例如：1920 表示 Visual Studio 2019。
 

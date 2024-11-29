@@ -1,6 +1,9 @@
 {
   "folders": [
     {
+      "path": "."
+    },
+    {
       "path": ".."
     }
   ],
@@ -18,10 +21,7 @@
       "*.c++": "cpp",
       "*.cpp": "cpp",
       "*.cxx": "cpp",
-      "*.cc": "cpp",
-      "bsp_font.H": "cpp",
-      "cstdlib": "c",
-      "cstdint": "c"
+      "*.cc": "cpp"
     },
     "[yaml]": {
       "editor.insertSpaces": true,

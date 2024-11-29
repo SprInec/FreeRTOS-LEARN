@@ -34,6 +34,9 @@
                     "path": "../Core/Src/gpio.c"
                   },
                   {
+                    "path": "../Core/Src/usart.c"
+                  },
+                  {
                     "path": "../Core/Src/stm32f4xx_it.c"
                   },
                   {
@@ -43,10 +46,13 @@
                     "path": "../Core/Src/stm32f4xx_hal_timebase_tim.c"
                   },
                   {
-                    "path": "../FreeRTOS-Lite/FreeRTOSConfig.h"
+                    "path": "../Core/Src/dma.c"
                   },
                   {
-                    "path": "../Core/Src/usart.c"
+                    "path": "../Core/Src/system_stm32f4xx.c"
+                  },
+                  {
+                    "path": "../Core/Src/tim.c"
                   }
                 ],
                 "folders": []
@@ -67,6 +73,9 @@
               },
               {
                 "path": "../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c"
+              },
+              {
+                "path": "../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c"
               },
               {
                 "path": "../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c"
@@ -106,9 +115,6 @@
               },
               {
                 "path": "../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c"
-              },
-              {
-                "path": "../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c"
               }
             ],
             "folders": []
@@ -125,68 +131,59 @@
         ]
       },
       {
-        "name": "FreeRTOS",
-        "files": [],
-        "folders": [
-          {
-            "name": "src",
-            "files": [
-              {
-                "path": "../FreeRTOS-Lite/src/croutine.c"
-              },
-              {
-                "path": "../FreeRTOS-Lite/src/event_groups.c"
-              },
-              {
-                "path": "../FreeRTOS-Lite/src/list.c"
-              },
-              {
-                "path": "../FreeRTOS-Lite/src/queue.c"
-              },
-              {
-                "path": "../FreeRTOS-Lite/src/tasks.c"
-              },
-              {
-                "path": "../FreeRTOS-Lite/src/timers.c"
-              }
-            ],
-            "folders": []
-          },
-          {
-            "name": "port",
-            "files": [
-              {
-                "path": "../FreeRTOS-Lite/port/MemMang/heap_4.c"
-              },
-              {
-                "path": "../FreeRTOS-Lite/port/RVDS/ARM_CM4F/port.c"
-              }
-            ],
-            "folders": []
-          }
-        ]
-      },
-      {
-        "name": "::CMSIS",
-        "files": [],
-        "folders": []
-      },
-      {
         "name": "libstm",
         "files": [
           {
-            "path": "../libstm/Src/bsp_led.c"
+            "path": "../libstm/bsp_user.c"
           },
           {
-            "path": "../libstm/Src/bsp_delay.c"
+            "path": "../libstm/Src/bsp_key.c"
+          },
+          {
+            "path": "../libstm/Src/bsp_led.c"
           },
           {
             "path": "../libstm/Src/bsp_usart.c"
           },
           {
-            "path": "../libstm/Src/bsp_key.c"
+            "path": "../libstm/Src/bsp_delay.c"
           }
         ],
+        "folders": []
+      },
+      {
+        "name": "FreeRTOS",
+        "files": [
+          {
+            "path": "../FreeRTOS-Lite/port/RVDS/ARM_CM4F/port.c"
+          },
+          {
+            "path": "../FreeRTOS-Lite/src/croutine.c"
+          },
+          {
+            "path": "../FreeRTOS-Lite/src/event_groups.c"
+          },
+          {
+            "path": "../FreeRTOS-Lite/src/list.c"
+          },
+          {
+            "path": "../FreeRTOS-Lite/src/queue.c"
+          },
+          {
+            "path": "../FreeRTOS-Lite/src/tasks.c"
+          },
+          {
+            "path": "../FreeRTOS-Lite/src/timers.c"
+          },
+          {
+            "path": "../FreeRTOS-Lite/port/MemMang/heap_4.c"
+          }
+        ],
+        "folders": []
+      },
+      {
+        "name": "::CMSIS",
+        "files": [],
         "folders": []
       }
     ]
@@ -195,27 +192,55 @@
   "deviceName": null,
   "packDir": null,
   "miscInfo": {
-    "uid": "806d737471787790beaab33441e34497"
+    "uid": "c97187f168502c0e9d52af82792a0b3d"
   },
   "targets": {
     "FreeRTOS_DEMO": {
-      "excludeList": [
-        "<virtual_root>/DemoCode/Src/static_task_demo.c"
-      ],
+      "excludeList": [],
       "toolchain": "AC5",
       "compileConfig": {
         "cpuType": "Cortex-M4",
         "floatingPointHardware": "single",
+        "scatterFilePath": "",
         "useCustomScatterFile": false,
-        "scatterFilePath": "<YOUR_SCATTER_FILE>.sct",
         "storageLayout": {
           "RAM": [
+            {
+              "tag": "RAM",
+              "id": 1,
+              "mem": {
+                "startAddr": "0x0",
+                "size": "0x0"
+              },
+              "isChecked": false,
+              "noInit": false
+            },
+            {
+              "tag": "RAM",
+              "id": 2,
+              "mem": {
+                "startAddr": "0x0",
+                "size": "0x0"
+              },
+              "isChecked": false,
+              "noInit": false
+            },
+            {
+              "tag": "RAM",
+              "id": 3,
+              "mem": {
+                "startAddr": "0x0",
+                "size": "0x0"
+              },
+              "isChecked": false,
+              "noInit": false
+            },
             {
               "tag": "IRAM",
               "id": 1,
               "mem": {
                 "startAddr": "0x20000000",
-                "size": "0x1C000"
+                "size": "0x1c000"
               },
               "isChecked": true,
               "noInit": false
@@ -224,7 +249,7 @@
               "tag": "IRAM",
               "id": 2,
               "mem": {
-                "startAddr": "0x2001C000",
+                "startAddr": "0x2001c000",
                 "size": "0x4000"
               },
               "isChecked": true,
@@ -233,14 +258,54 @@
           ],
           "ROM": [
             {
+              "tag": "ROM",
+              "id": 1,
+              "mem": {
+                "startAddr": "0x0",
+                "size": "0x0"
+              },
+              "isChecked": false,
+              "isStartup": false
+            },
+            {
+              "tag": "ROM",
+              "id": 2,
+              "mem": {
+                "startAddr": "0x0",
+                "size": "0x0"
+              },
+              "isChecked": false,
+              "isStartup": false
+            },
+            {
+              "tag": "ROM",
+              "id": 3,
+              "mem": {
+                "startAddr": "0x0",
+                "size": "0x0"
+              },
+              "isChecked": false,
+              "isStartup": false
+            },
+            {
               "tag": "IROM",
               "id": 1,
               "mem": {
-                "startAddr": "0x08000000",
-                "size": "0x10000"
+                "startAddr": "0x8000000",
+                "size": "0x100000"
               },
               "isChecked": true,
               "isStartup": true
+            },
+            {
+              "tag": "IROM",
+              "id": 2,
+              "mem": {
+                "startAddr": "0x0",
+                "size": "0x0"
+              },
+              "isChecked": false,
+              "isStartup": false
             }
           ]
         },
@@ -253,7 +318,7 @@
         "resetMode": "default",
         "runAfterProgram": true,
         "speed": 4000,
-        "address": "0x08000000",
+        "address": "0x8000000",
         "elFile": "None",
         "optionBytes": ".eide/freertos_demo.st.option.bytes.ini",
         "otherCmds": ""
@@ -279,13 +344,13 @@
           "../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
           "../Drivers/CMSIS/Device/ST/STM32F4xx/Include",
           "../Drivers/CMSIS/Include",
-          "../FreeRTOS-Lite/include",
-          "../FreeRTOS-Lite/port/RVDS/ARM_CM4F",
+          "../libstm",
+          "../libstm/Inc",
           "../FreeRTOS-Lite",
+          "../FreeRTOS-Lite/include",
           ".cmsis/include",
           "../MDK-ARM/RTE/_FreeRTOS_DEMO",
-          "../libstm",
-          "../libstm/Inc"
+          "../FreeRTOS-Lite/port/RVDS/ARM_CM4F"
         ],
         "libList": [],
         "defineList": [
@@ -303,7 +368,7 @@
             "output-debug-info": "enable"
           },
           "c/cpp-compiler": {
-            "optimization": "level-0",
+            "optimization": "level-3",
             "one-elf-section-per-function": true,
             "c99-mode": true,
             "C_FLAGS": "--diag_suppress=1 --diag_suppress=1295",
@@ -313,28 +378,6 @@
           "asm-compiler": {},
           "linker": {
             "output-format": "elf"
-          }
-        },
-        "AC6": {
-          "version": 3,
-          "beforeBuildTasks": [],
-          "afterBuildTasks": [],
-          "global": {
-            "use-microLIB": false,
-            "output-debug-info": "enable"
-          },
-          "c/cpp-compiler": {
-            "optimization": "level-0",
-            "language-c": "c99",
-            "language-cpp": "c++11",
-            "link-time-optimization": false
-          },
-          "asm-compiler": {
-            "$use": "asm-auto"
-          },
-          "linker": {
-            "output-format": "elf",
-            "misc-controls": "--diag_suppress=L6329"
           }
         }
       }

@@ -18,6 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -33,8 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define KEY0_EVENT (0x01 << 0)
-#define KEY1_EVENT (0x01 << 1)
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,25 +46,25 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static TaskHandle_t APPTaskCreate_Handle = NULL;
-static TaskHandle_t LED_Task_Handle = NULL;
-static TaskHandle_t KEY_Task_Handle = NULL;
+static TaskHandle_t AppTaskCreate_Handle = NULL; /* 创建任务句柄 */
+static TaskHandle_t LED_Task_Handle = NULL;      /* LED_Task 任务句柄 */
+static TaskHandle_t Receive_Task_Handle = NULL;  /* Receive_Task 任务句柄 */
 
-static EventGroupHandle_t Event_Handle = NULL;
+SemaphoreHandle_t BinarySem1_Handle = NULL; /* 二进制信号量句柄 */
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+static void AppTaskCreate(void);              /* 用于创建任务 */
+static void LED_Task(void *pvParameters);     /* LED_Task 任务实现 */
+static void Receive_Task(void *pvParameters); /* 接收消息任务 */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void AppTaskCreate(void); // 用于创建任务
 
-static void LED_Task(void *pvParameters); 
-static void KEY_Task(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -73,7 +74,7 @@ static void KEY_Task(void *pvParameters);
 int main(void)
 {
     /* USER CODE BEGIN 1 */
-    BaseType_t xRetrn = pdPASS;
+    BaseType_t xReturn = pdPASS;
     /* USER CODE END 1 */
 
     /* MCU Configuration--------------------------------------------------------*/
@@ -94,25 +95,30 @@ int main(void)
 
     /* Initialize all configured peripherals */
     MX_GPIO_Init();
+    MX_DMA_Init();
     MX_USART1_UART_Init();
+    MX_TIM7_Init();
     /* USER CODE BEGIN 2 */
     BSP_LED_Init();
     BSP_KEY_Init();
+    HAL_TIM_Base_Start_IT(&htim7);
+    __BSP_USART_DMA_RECEIVE_START();
 
-    printf("\n- programe start!\n\n");
+    printf("\n- Program Start -\n");
 
-    xRetrn = xTaskCreate((TaskFunction_t)AppTaskCreate,
-                         "AppTaskCreate",
-                         512,
-                         NULL,
-                         1,
-                         &APPTaskCreate_Handle);
-    if (pdPASS == xRetrn)
+    xReturn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                          "AppTaskCreate",
+                          512,
+                          NULL,
+                          1,
+                          &AppTaskCreate_Handle);
+    if (pdPASS == xReturn)
+    {
+        printf("AppTaskCreate task create success!\n");
         vTaskStartScheduler();
-    else {
-        printf("ERROR: app create task create failed!\n");
-        return -1;
-   }
+    }
+    else
+        printf("AppTaskCreate task create failed!\n");
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -173,29 +179,31 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 static void AppTaskCreate(void)
 {
-    // 定义一个创建信息返回值, 默认为 pdPASS
     BaseType_t xReturn = pdPASS;
 
-    taskENTER_CRITICAL(); // 进入临界区
+    taskENTER_CRITICAL();
+
+    BinarySem1_Handle = xSemaphoreCreateBinary();
+    if (NULL != BinarySem1_Handle)
+        printf("BinarySem1_Handle create success!\n");
 
     xReturn = xTaskCreate((TaskFunction_t)LED_Task,
-                          "LED Task",
+                          "LED_Task",
+                          512,
+                          NULL,
+                          2,
+                          &LED_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("LED_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)Receive_Task,
+                          "Receive_Task",
                           512,
                           NULL,
                           3,
-                          &LED_Task_Handle);
+                          &Receive_Task_Handle);
     if (pdPASS == xReturn)
-        printf("Create LED Task successfully!\n");
-
-    xReturn = xTaskCreate((TaskFunction_t)KEY_Task,
-                          "KEY Task",
-                          512,
-                          NULL,
-                          4,
-                          &KEY_Task_Handle);
-
-    if (pdPASS == xReturn)
-        printf("Create KEY Task successfully!\n\n");
+        printf("Receive_Task task create success!\n");
 
     vTaskDelete(NULL);
 
@@ -204,43 +212,34 @@ static void AppTaskCreate(void)
 
 static void LED_Task(void *pvParameters)
 {
-    /* 定义一个事件接收变量*/
-    EventBits_t r_event;
-    while(1)
-    {
-        r_event = xEventGroupWaitBits(Event_Handle,
-                                      KEY0_EVENT | KEY1_EVENT, // 接收任务感兴趣的事件
-                                      pdTRUE,    // 退出时清除事件位
-                                      pdTRUE, // 满足感兴趣的所有事件
-                                      portMAX_DELAY);
-
-        if (r_event & (KEY0_EVENT | KEY1_EVENT) == (KEY0_EVENT | KEY1_EVENT)) {
-            printf("Both KEY1 and KEY2 are pressed!\n");
-            __BSP_LED1_ON();
-        }
-        else
-            printf("Event error!\n");
-    }
-}
-
-static void KEY_Task(void *pvParameters)
-{
+    BaseType_t xReturn = pdPASS;
     while (1)
     {
-        if (BSP_KEY_Read(KEY0) == BSP_KEY_PRESSED)
+        xReturn = xSemaphoreTake(BinarySem1_Handle,
+                                 portMAX_DELAY);
+        if (pdPASS == xReturn)
         {
-            printf("KEY0 is pressed!\n");
-            xEventGroupSetBits(Event_Handle, KEY0_EVENT);
+            __BSP_LED1_FICKER(100);
         }
-        if (BSP_KEY_Read(KEY1) == BSP_KEY_PRESSED)
-        {
-            printf("KEY1 is pressed!\n");
-            xEventGroupSetBits(Event_Handle, KEY1_EVENT);
-        }
-        vTaskDelay(20);
     }
 }
 
+static void Receive_Task(void *pvParameters)
+{
+    BaseType_t xReturn = pdPASS;
+    while (1)
+    {
+        printf("Receive_Task is waiting for the semaphore...\n");
+        xReturn = xSemaphoreTake(USART_BinarySem_Handle,
+                                 portMAX_DELAY);
+        if (pdPASS == xReturn)
+        {
+            printf("Receive data: %s\n", rx_buffer);
+            BSP_UsartVar_Conduct();
+            __BSP_LED2_TOGGLE();
+        }
+    }
+}
 /* USER CODE END 4 */
 
 /**
@@ -261,7 +260,20 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         HAL_IncTick();
     }
     /* USER CODE BEGIN Callback 1 */
+    if (htim->Instance == TIM7)
+    {
+        BaseType_t pxHigherPriorityTaskWoken;
+        uint32_t ulReturn;
+        // 进入临界段,数据可嵌套
+        ulReturn = taskENTER_CRITICAL_FROM_ISR();
+        // 释放信号量
+        xSemaphoreGiveFromISR(BinarySem1_Handle,
+                              &pxHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 
+        // 出临界段
+        taskEXIT_CRITICAL_FROM_ISR(ulReturn);
+    }
     /* USER CODE END Callback 1 */
 }
 
