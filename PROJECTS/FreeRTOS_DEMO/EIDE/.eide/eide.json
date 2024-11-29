@@ -53,6 +53,9 @@
                   },
                   {
                     "path": "../Core/Src/tim.c"
+                  },
+                  {
+                    "path": "../libstm/Src/bsp_timbase.c"
                   }
                 ],
                 "folders": []
@@ -147,6 +150,9 @@
           },
           {
             "path": "../libstm/Src/bsp_delay.c"
+          },
+          {
+            "path": "../libstm/Src/bsp_timbase.c"
           }
         ],
         "folders": []

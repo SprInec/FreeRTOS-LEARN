@@ -7745,7 +7745,7 @@ FreeRTOS 的事件用于事件类型的通讯，无数据传输，也就是说�
 
 任务 1 对事件 3 或事件 5 感兴趣（逻辑或），当发生其中的某一个事件都会被唤醒，并且执行相应操作。而任务 2 对事件 3 与事件 5 感兴趣（逻辑与），当且仅当事件 3 与事件 5 都发生的时候，任务 2 才会被唤醒，如果只有一个其中一个事件发生，那么任务还是会继续等待事件发生。如果接在收事件函数中设置了清除事件位 `xClearOnExit`，那么当任务唤醒后将把事件 3 和事件 5 的事件标志清零，否则事件标志将依然存在。
 
-#### 8.4 事件控制块
+### 8.4 事件控制块
 
 事件标志组存储在一个 `EventBits_t` 类型的变量中，该变量在事件组结构体中定义，具体见下面代码。如果宏configUSE_16_BIT_TICKS 定义为 1，那么变量 `uxEventBits` 就是 16 位的， 其中有 8 个位用来存储事件组， 如果宏configUSE_16_BIT_TICKS 定义为 0，那么变量 `uxEventBits` 就是 32 位的，其中有 24 个位用来存储事件组，每一位代表一个事件的发生与否，利用逻辑或、逻辑与等实现不同事件的不同唤醒处理。在STM32 中，`uxEventBits` 是32 位的，所以我们有 24 个位用来实现事件组。除了事件标志组变量之外，FreeRTOS 还使用了一个链表来记录等待事件的任务，所有在等待此事件的任务均会被挂载在等待事件列表 `xTasksWaitingForBits`。
 
@@ -7764,9 +7764,9 @@ typedef struct xEventGroupDefinition {
 } EventGroup_t;
 ```
 
-#### 8.5 函数事件接口
+### 8.5 函数事件接口
 
-##### 8.5.1 事件创建函数 xEventGroupCreate()
+#### 8.5.1 事件创建函数 xEventGroupCreate()
 
 `xEventGroupCreate()` 用于创建一个事件组，并返回对应的句柄。要想使用该函数必须在头文件 `FreeRTOSConfig.h` 定义宏configSUPPORT_DYNAMIC_ALLOCATION 为1（在`FreeRTOS.h` 中默认定义为1）且需要把`FreeRTOS/source/event_groups.c` 这个 C 文件添加到工程中。
 
@@ -7790,7 +7790,7 @@ else
     /* 创建失败，应为内存空间不足 */
 ```
 
-##### 8.5.2 事件删除函数 vEventGroupDelete()
+#### 8.5.2 事件删除函数 vEventGroupDelete()
 
 在很多场合，某些事件只用一次的，就好比在事件应用场景说的危险机器的启动，假如各项指标都达到了，并且机器启动成功了，那这个事件之后可能就没用了，那就可以进行销毁了。想要删除事件怎么办？FreeRTOS 给我们提供了一个删除事件的函数——`vEventGroupDelete()`，使用它就能将事件进行删除了。当系统不再使用事件对象时，可以通过删除事件对象控制块来释放系统资源，具体见代码。
 
@@ -7815,7 +7815,7 @@ if (NULL != Event_Handle)
     /* 创建失败，应为内存空间不足 */
 ```
 
-##### 8.5.3 事件组置位函数 xEventGroupSetBits()（任务）
+#### 8.5.3 事件组置位函数 xEventGroupSetBits()（任务）
 
 `xEventGroupSetBits()` 用于置位事件组中指定的位，当位被置位之后，阻塞在该位上的任务将会被解锁。使用该函数接口时，通过参数指定的事件标志来设定事件的标志位，然后遍历等待在事件对象上的事件等待列表，判断是否有任务的事件激活要求与当前事件对象标志值匹配，如果有，则唤醒该任务。简单来说，就是设置我们自己定义的事件标志位为 1，并且看看有没有任务在等待这个事件，有的话就唤醒它。
 
@@ -7879,7 +7879,7 @@ static void KEY_Task(void* parameter)
 }
 ```
 
-##### 8.5.4 事件组置位函数 xEventGroupSetBitsFromISR()（中断）
+#### 8.5.4 事件组置位函数 xEventGroupSetBitsFromISR()（中断）
 
 `xEventGroupSetBitsFromISR()` 是 `xEventGroupSetBits()` 的中断版本，用于置位事件组中指定的位。置位事件组中的标志位是一个不确定的操作，因为阻塞在事件组的标志位上的任务的个数是不确定的。FreeRTOS 是不允许不确定的操作在中断和临界段中发生的，所以 `xEventGroupSetBitsFromISR()` 给FreeRTOS 的守护任务发送一个消息，让置位事件组的操作在守护任务里面完成，<u>==守护任务==是基于调度锁而非临界段的机制来实现的</u>。
 
@@ -7921,7 +7921,7 @@ void anInterruptHandler( void )
 }
 ```
 
-##### 8.5.5 等待事件函数 xEventGroupWaitBits()
+#### 8.5.5 等待事件函数 xEventGroupWaitBits()
 
 既然标记了事件的发生，那么我怎么知道他到底有没有发生，这也是需要一个函数来获取事件是否已经发生， FreeRTOS 提供了一个等待指定事件的函数— —`xEventGroupWaitBits()`，通过这个函数，任务可以知道事件标志组中的哪些位，有什么事件发生了，然后通过 “逻辑与”、“逻辑或” 等操作对感兴趣的事件进行获取，并且这个函数实现了等待超时机制，当且仅当任务等待的事件发生时，任务才能获取到事件信息。在这段时间中，如果事件一直没发生，该任务将保持阻塞状态以等待事件发生。<u>当其它任务或中断服务程序往其等待的事件设置对应的标志位，该任务将自动由阻塞态转为就绪态。</u>当任务等待的时间超过了指定的阻塞时间，即使事件还未发生，任务也会自动从阻塞态转移为就绪态。这样子很有效的体现了操作系统的实时性，如果事件正确获取（等待到）则返回对应的事件标志位，由用户判断再做处理，因为在事件超时的时候也会返回一个不能确定的事件值，所以需要判断任务所等待的事件是否真的发生。
 
@@ -7973,7 +7973,7 @@ static void LED_Task(void* parameter)
 }           
 ```
 
-##### 8.5.6 xEventGroupClearBits() 与 xEventGroupClearBitsFromISR()
+#### 8.5.6 xEventGroupClearBits() 与 xEventGroupClearBitsFromISR()
 
 `xEventGroupClearBits()` 与 `xEventGroupClearBitsFromISR()` 都是用于清除事件组指定的位，如果在获取事件的时候没有将对应的标志位清除，那么就需要用这个函数来进行显式清除， `xEventGroupClearBits()` 函数不能在中断中使用，而是由具有中断保护功能的 `xEventGroupClearBitsFromISR()`来代替，中断清除事件标志位的操作在守护任务（也叫定时器服务任务） 里面完成。守护进程的优先级由 `FreeRTOSConfig.h` 中的宏 configTIMER_TASK_PRIORITY 来定义。要想使用该函数必须把 `FreeRTOS/source/event_groups.c` 这个 C 文件添加到工程中。`xEventGroupClearBits()` 的具体说明见表格，应用举例见代码。
 
@@ -8002,7 +8002,7 @@ void aFunction( EventGroupHandle_t xEventGroup )
 }
 ```
 
-#### 8.6 事件实验
+### 8.6 事件实验
 
 事件标志组实验是在 FreeRTOS 中创建了两个任务，一个是设置事件任务，一个是等待事件任务，两个任务独立运行，设置事件任务通过检测按键的按下情况设置不同的事件标志位，等待事件任务则获取这两个事件标志位，并且判断两个事件是否都发生，如果是则输出相应信息，LED 进行翻转。等待事件任务的等待时间是 portMAX_DELAY，一直在等待事件的发生，等待到事件之后清除对应的事件标记位，具体见代码。
 
@@ -11886,25 +11886,405 @@ void assert_failed(uint8_t *file, uint32_t line)
 #endif /* USE_FULL_ASSERT */
 ```
 
+## 十三. CPU 使用率统计
 
+### 13.1 CPU 利用率的基本概念
 
+CPU 使用率其实就是系统运行的程序占用的 CPU 资源，表示机器在某段时间程序运行的情况，如果这段时间中，程序一直在占用CPU 的使用权，那么可以人为 CPU 的利用率是100%。CPU 的利用率越高，说明机器在这个时间上运行了很多程序，反之较少。利用率的高低与 CPU 强弱有直接关系，就像一段一模一样的程序，如果使用运算速度很慢的 CPU，它可能要运行 1000ms，而使用很运算速度很快的 CPU 可能只需要 10ms，那么在 1000ms 这段时间中，前者的 CPU 利用率就是 100%，而后者的CPU 利用率只有 1%，因为 1000ms 内前者都在使用 CPU 做运算，而后者只使用 10ms 的时间做运算，剩下的时间 CPU 可以做其他事情。
 
+FreeRTOS 是多任务操作系统，对 CPU 都是分时使用的：比如A 任务占用10ms，然后 B 任务占用 30ms，然后空闲 60ms，再又是 A 任务占 10ms，B 任务占 30ms，空闲 60ms; 如果在一段时间内都是如此，那么这段时间内的利用率为 40%，因为整个系统中只有 40% 的时间是 CPU 处理数据的时间。
 
+### 13.2 CPU 利用率的作用
 
+==一个系统设计的好坏，可以使用 CPU 使用率来衡量，一个好的系统必然是能完美响应急需的处理，并且系统的资源不会过于浪费（性价比高）==。举个例子，假设一个系统的 CPU 利用率经常在 90%~100%徘徊，那么系统就很少有空闲的时候，这时候突然有一些事情急需 CPU 的处理，但是此时 CPU 都很可能被其他任务在占用了，那么这个紧急事件就有可能无法被相应，即使能被相应，那么占用CPU的任务又处于等待状态，这种系统就是不够完美的，因为资源处理得太过于紧迫；反过来，假如 CPU 的利用率在 1% 以下，那么我们就可以认为这种产品的资源过于浪费，搞一个那么好的 CPU 去干着没啥意义的活（大部分时间处于空闲状态），使用，作为产品的设计，既不能让资源过于浪费，也不能让资源过于紧迫，这种设计才是完美的，在需要的时候能及时处理完突发事件，而且资源也不会过剩，性价比更高。
 
+### 13.3 CPU 利用率统计
 
+FreeRTOS 是一个很完善很稳定的操作系统，当然也给我们提供测量各个任务占用 CPU 时间的函数接口，我们可以知道系统中的每个任务占用 CPU 的时间，从而得知系统设计的是否合理，出于性能方面的考虑，有的时候，我们希望知道 CPU 的使用率为多少，进而判断此 CPU 的负载情况和对于当前运行环境是否能够 “胜任工作”。所以，在调试的时候很有必要得到当前系统的 CPU 利用率相关信息，但是在产品发布的时候，就可以把 CPU 利用率统计这个功能去掉，因为使用任何功能的时候，都是需要消耗系统资源的，FreeRTOS 是使用一个外部的变量进行统计时间的，并且消耗一个高精度的定时器，其用于定时的精度是系统时钟节拍的 10-20 倍，比如当前系统时钟节拍是 1000HZ，那么定时器的计数节拍就要是 10000-20000HZ。而且 FreeRTOS 进行 CPU 利用率统计的时候，也有一定缺陷，因为它没有对进行 CPU 利用率统计时间的变量做溢出保护，我们使用的是 32 位变量来系统运行的时间计数值，而按 20000HZ 的中断频率计算，每进入一中断就是 50us，变量加一，最大支持计数时间：$2^{32} * 50us / 3600s =59.6$ 分钟，运行时间超过了 59.6 分钟后统计的结果将不准确，除此之外整个系统一直响应定时器 50us 一次的中断会比较影响系统的性能。
 
+用户想要使用使用 CPU 利用率统计的话， 需要自定义配置一下，首先在 `FreeRTOSConfig.h` 配置与系统运行时间和任务状态收集有关的配置选项，并且实现以下两个宏定义：
 
+- portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() 
+- portGET_RUN_TIME_COUNTER_VALUE()
 
+```c
+//启用运行时间统计功能
+#define configGENERATE_RUN_TIME_STATS 1
+//启用可视化跟踪调试
+#define configUSE_TRACE_FACILITY 1
+/* 与宏 configUSE_TRACE_FACILITY 同时为 1 时会编译下面 3 个函数
+ *  prvWriteNameToBuffer()
+ *  vTaskList(),
+ *  vTaskGetRunTimeStats()
+ */
+#define configUSE_STATS_FORMATTING_FUNCTIONS 1
 
+extern volatile uint32_t CPU_RunTime;
 
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() (CPU_RunTime = 0ul)
+#define portGET_RUN_TIME_COUNTER_VALUE() CPU_RunTime
+```
 
+然后需要实现一个中断频率为 20000HZ 定时器，用于系统运行时间统计，其实很简单，只需将 `CPU_RunTime` 变量自加即可，这个变量是用于记录系统运行时间的，中断服务函数具体见代码：
 
+```c
+/* 用于统计运行时间 */
+volatile uint32_t CPU_RunTime = 0UL;
 
+void BASIC_TIM_IRQHandler (void)
+{
+    if ( TIM_GetITStatus( BASIC_TIM, TIM_IT_Update) != RESET ) {
+        CPU_RunTime++;
+        TIM_ClearITPendingBit(BASIC_TIM , TIM_FLAG_Update);
+    }
+}
+```
 
+然后我们就可以在任务中调用 `vTaskGetRunTimeStats()` 和 `vTaskList()` 函数获得任务的相关信息与 CPU 使用率的相关信息，然后打印出来即可。关于 `vTaskGetRunTimeStats()` 和 `vTaskList()` 函数的具体实现过程就不讲解了，有兴趣可以看看源码。
 
+获取任务信息与 CPU 使用率：
 
+```c
+memset(CPU_RunInfo,0,400); //信息缓冲区清零
 
+vTaskList((char *)&CPU_RunInfo); //获取任务运行时间信息
+
+printf("---------------------------------------------\r\n");
+printf("任务名 任务状态 优先级 剩余栈 任务序号\r\n");
+printf("%s", CPU_RunInfo);
+printf("---------------------------------------------\r\n");
+
+memset(CPU_RunInfo,0,400); //信息缓冲区清零
+
+vTaskGetRunTimeStats((char *)&CPU_RunInfo);
+
+printf("任务名 运行计数 使用率\r\n");
+printf("%s", CPU_RunInfo);
+printf("---------------------------------------------\r\n\n");
+```
+
+### 13.4 CPU 利用率统计实验
+
+CPU 利用率实验是是在 FreeRTOS 中创建了三个任务，其中两个任务是普通任务，另一个任务用于获取 CPU 利用率与任务相关信息并通过串口打印出来。
+
+```c
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "dma.h"
+#include "tim.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "bsp_config.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+static TaskHandle_t AppTaskCreate_Handle = NULL; /* 创建任务句柄 */
+static TaskHandle_t LED1_Task_Handle = NULL;      /* LED1_Task 任务句柄 */
+static TaskHandle_t LED2_Task_Handle = NULL;      /* LED2_Task 任务句柄 */
+static TaskHandle_t CPU_Task_Handle = NULL;        /* CPU_Task 任务句柄 */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+static void AppTaskCreate(void);              /* 用于创建任务 */
+static void LED1_Task(void *pvParameters);     /* LED1_Task 任务实现 */
+static void LED2_Task(void *pvParameters);     /* LED2_Task 任务实现 */
+static void CPU_Task(void *pvParameters);     /* CPU_Task 任务实现 */
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+    /* USER CODE BEGIN 1 */
+    BaseType_t xReturn = pdPASS;
+    /* USER CODE END 1 */
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
+    /* Configure the system clock */
+    SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
+
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_DMA_Init();
+    MX_USART1_UART_Init();
+    MX_TIM7_Init();
+    /* USER CODE BEGIN 2 */
+    BSP_LED_Init();
+    BSP_KEY_Init();
+    BSP_FREERTOS_TIMBASE_Init();
+    HAL_TIM_Base_Start_IT(&htim7);
+
+    printf("\n- Program Start -\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)AppTaskCreate,
+                          "AppTaskCreate",
+                          512,
+                          NULL,
+                          1,
+                          &AppTaskCreate_Handle);
+    if (pdPASS == xReturn)
+    {
+        printf("AppTaskCreate task create success!\n");
+        vTaskStartScheduler();
+    }
+    else
+        printf("AppTaskCreate task create failed!\n");
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
+}
+
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /** Configure the main internal regulator output voltage
+     */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+     * in the RCC_OscInitTypeDef structure.
+     */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 4;
+    RCC_OscInitStruct.PLL.PLLN = 72;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 4;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /** Initializes the CPU, AHB and APB buses clocks
+     */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+/* USER CODE BEGIN 4 */
+static void AppTaskCreate(void)
+{
+    BaseType_t xReturn = pdPASS;
+
+    taskENTER_CRITICAL();
+
+    xReturn = xTaskCreate((TaskFunction_t)LED1_Task,
+                          "LED1_Task",
+                          512,
+                          NULL,
+                          2,
+                          &LED1_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("LED1_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)LED2_Task,
+                          "LED2_Task",
+                          512,
+                          NULL,
+                          3,
+                          &LED2_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("LED2_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)CPU_Task,
+                          "CPU_Task",
+                          512,
+                          NULL,
+                          4,
+                          &CPU_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("CPU_Task task create success!\n");
+
+    vTaskDelete(NULL);
+
+    taskEXIT_CRITICAL();
+}
+
+static void LED1_Task(void *pvParameters)
+{
+    while (1)
+    {
+        __BSP_LED1_FICKER(100);
+        printf("LED1_Task is running!\r\n");
+    }
+}
+
+static void LED2_Task(void *pvParameters)
+{
+    while (1)
+    {
+        __BSP_LED2_FICKER(100);
+        printf("LED2_Task is running!\r\n");
+    }
+}
+
+static void CPU_Task(void *pvParameters)
+{
+    uint8_t CPU_RunInfo[400];
+    while (1)
+    {
+        memset(CPU_RunInfo, 0, 400);
+
+        // 获取任务运行时间信息
+        vTaskList((char *)&CPU_RunInfo);
+
+        printf("-----------------------------------------\r\n");
+        printf("任务名  任务状态  优先级  剩余栈  任务序号\r\n");
+        printf("%s", CPU_RunInfo);
+        printf("-----------------------------------------\r\n");
+
+        memset(CPU_RunInfo, 0, 400);
+
+        vTaskGetRunTimeStats((char *)&CPU_RunInfo);
+
+        printf("任务名  运行计数  使用率\r\n");
+        printf("%s", CPU_RunInfo);
+        printf("-----------------------------------------\r\n");
+
+        vTaskDelay(1000);
+    }
+}
+/* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM2 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM2)
+    {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    /* USER CODE BEGIN 6 */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+```
 
 ##  OTHER
 

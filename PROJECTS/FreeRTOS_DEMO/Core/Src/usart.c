@@ -22,7 +22,6 @@
 
 /* USER CODE BEGIN 0 */
 /* USER CODE END 0 */
-
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 

@@ -47,10 +47,9 @@
 
 /* USER CODE BEGIN PV */
 static TaskHandle_t AppTaskCreate_Handle = NULL; /* 创建任务句柄 */
-static TaskHandle_t LED_Task_Handle = NULL;      /* LED_Task 任务句柄 */
-static TaskHandle_t Receive_Task_Handle = NULL;  /* Receive_Task 任务句柄 */
-
-SemaphoreHandle_t BinarySem1_Handle = NULL; /* 二进制信号量句柄 */
+static TaskHandle_t LED1_Task_Handle = NULL;      /* LED1_Task 任务句柄 */
+static TaskHandle_t LED2_Task_Handle = NULL;      /* LED2_Task 任务句柄 */
+static TaskHandle_t CPU_Task_Handle = NULL;        /* CPU_Task 任务句柄 */
 
 /* USER CODE END PV */
 
@@ -58,8 +57,9 @@ SemaphoreHandle_t BinarySem1_Handle = NULL; /* 二进制信号量句柄 */
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 static void AppTaskCreate(void);              /* 用于创建任务 */
-static void LED_Task(void *pvParameters);     /* LED_Task 任务实现 */
-static void Receive_Task(void *pvParameters); /* 接收消息任务 */
+static void LED1_Task(void *pvParameters);     /* LED1_Task 任务实现 */
+static void LED2_Task(void *pvParameters);     /* LED2_Task 任务实现 */
+static void CPU_Task(void *pvParameters);     /* CPU_Task 任务实现 */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -101,8 +101,8 @@ int main(void)
     /* USER CODE BEGIN 2 */
     BSP_LED_Init();
     BSP_KEY_Init();
+    BSP_FREERTOS_TIMBASE_Init();
     HAL_TIM_Base_Start_IT(&htim7);
-    __BSP_USART_DMA_RECEIVE_START();
 
     printf("\n- Program Start -\n");
 
@@ -183,61 +183,80 @@ static void AppTaskCreate(void)
 
     taskENTER_CRITICAL();
 
-    BinarySem1_Handle = xSemaphoreCreateBinary();
-    if (NULL != BinarySem1_Handle)
-        printf("BinarySem1_Handle create success!\n");
-
-    xReturn = xTaskCreate((TaskFunction_t)LED_Task,
-                          "LED_Task",
+    xReturn = xTaskCreate((TaskFunction_t)LED1_Task,
+                          "LED1_Task",
                           512,
                           NULL,
                           2,
-                          &LED_Task_Handle);
+                          &LED1_Task_Handle);
     if (pdPASS == xReturn)
-        printf("LED_Task task create success!\n");
+        printf("LED1_Task task create success!\n");
 
-    xReturn = xTaskCreate((TaskFunction_t)Receive_Task,
-                          "Receive_Task",
+    xReturn = xTaskCreate((TaskFunction_t)LED2_Task,
+                          "LED2_Task",
                           512,
                           NULL,
                           3,
-                          &Receive_Task_Handle);
+                          &LED2_Task_Handle);
     if (pdPASS == xReturn)
-        printf("Receive_Task task create success!\n");
+        printf("LED2_Task task create success!\n");
+
+    xReturn = xTaskCreate((TaskFunction_t)CPU_Task,
+                          "CPU_Task",
+                          512,
+                          NULL,
+                          4,
+                          &CPU_Task_Handle);
+    if (pdPASS == xReturn)
+        printf("CPU_Task task create success!\n");
 
     vTaskDelete(NULL);
 
     taskEXIT_CRITICAL();
 }
 
-static void LED_Task(void *pvParameters)
+static void LED1_Task(void *pvParameters)
 {
-    BaseType_t xReturn = pdPASS;
     while (1)
     {
-        xReturn = xSemaphoreTake(BinarySem1_Handle,
-                                 portMAX_DELAY);
-        if (pdPASS == xReturn)
-        {
-            __BSP_LED1_FICKER(100);
-        }
+        __BSP_LED1_FICKER(100);
+        printf("LED1_Task is running!\r\n");
     }
 }
 
-static void Receive_Task(void *pvParameters)
+static void LED2_Task(void *pvParameters)
 {
-    BaseType_t xReturn = pdPASS;
     while (1)
     {
-        printf("Receive_Task is waiting for the semaphore...\n");
-        xReturn = xSemaphoreTake(USART_BinarySem_Handle,
-                                 portMAX_DELAY);
-        if (pdPASS == xReturn)
-        {
-            printf("Receive data: %s\n", rx_buffer);
-            BSP_UsartVar_Conduct();
-            __BSP_LED2_TOGGLE();
-        }
+        __BSP_LED2_FICKER(100);
+        printf("LED2_Task is running!\r\n");
+    }
+}
+
+static void CPU_Task(void *pvParameters)
+{
+    uint8_t CPU_RunInfo[400];
+    while (1)
+    {
+        memset(CPU_RunInfo, 0, 400);
+
+        // 获取任务运行时间信息
+        vTaskList((char *)&CPU_RunInfo);
+
+        printf("-----------------------------------------\r\n");
+        printf("任务名  任务状态  优先级  剩余栈  任务序号\r\n");
+        printf("%s", CPU_RunInfo);
+        printf("-----------------------------------------\r\n");
+
+        memset(CPU_RunInfo, 0, 400);
+
+        vTaskGetRunTimeStats((char *)&CPU_RunInfo);
+
+        printf("任务名  运行计数  使用率\r\n");
+        printf("%s", CPU_RunInfo);
+        printf("-----------------------------------------\r\n");
+
+        vTaskDelay(1000);
     }
 }
 /* USER CODE END 4 */
@@ -260,20 +279,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         HAL_IncTick();
     }
     /* USER CODE BEGIN Callback 1 */
-    if (htim->Instance == TIM7)
-    {
-        BaseType_t pxHigherPriorityTaskWoken;
-        uint32_t ulReturn;
-        // 进入临界段,数据可嵌套
-        ulReturn = taskENTER_CRITICAL_FROM_ISR();
-        // 释放信号量
-        xSemaphoreGiveFromISR(BinarySem1_Handle,
-                              &pxHigherPriorityTaskWoken);
-        portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 
-        // 出临界段
-        taskEXIT_CRITICAL_FROM_ISR(ulReturn);
-    }
     /* USER CODE END Callback 1 */
 }
 
