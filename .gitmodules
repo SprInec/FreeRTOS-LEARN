@@ -1,0 +1,7 @@
+[submodule "FreeRTOS-Lite"]
+    path = PROJECTS/FreeRTOS_DEMO/FreeRTOS-Lite
+    url = https://github.com/SprInec/freertos-lite.git
+
+[submodule "libstm"]
+    path = PROJECTS/FreeRTOS_DEMO/libstm
+    url = https://github.com/SprInec/libstm.git
